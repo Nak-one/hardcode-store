@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Заказ принят — Hardcode Store{% endblock %}
+{% block body_class %}store-page-order-success{% endblock %}
+
+{% block content %}
+<div class="store-order-success">
+  <h1 class="store-page-title">Заказ принят</h1>
+  <p class="store-order-success-message">
+    Спасибо за заказ! Номер заказа: <strong>#{{ order.pk }}</strong>
+  </p>
+  <p class="store-order-success-total">Сумма: {{ order.total }} ₽</p>
+  <p class="store-order-success-next">
+    Мы свяжемся с вами в ближайшее время для уточнения деталей доставки.
+    {% if order.payment_type == 'cash' %}Оплата при получении.{% endif %}
+  </p>
+  <a href="{% url 'catalog:product_list' %}" class="store-order-success-link">Вернуться в каталог</a>
+</div>
+{% endblock %}

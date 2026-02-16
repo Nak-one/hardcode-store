@@ -1,0 +1,99 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if original %}
+        {% url "admin:catalog_product_generate_variants" original.pk as generate_url %}
+        {% include "unfold/helpers/tab_action.html" with title="Сгенерировать варианты" link=generate_url icon="auto_fix_high" %}
+    {% endif %}
+{% endblock %}
+
+{% block after_field_sets %}
+    {% if original %}
+        <section class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6 shadow-xs">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark">
+                        Варианты товара
+                    </h2>
+                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                        Быстрое управление вариантами прямо в карточке товара
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ variants_generate_url }}" class="px-3 py-2 rounded-default bg-primary-600 text-white hover:bg-primary-700 text-sm">
+                        Генерировать
+                    </a>
+                    <a href="{{ variant_add_url }}" class="px-3 py-2 rounded-default border border-base-200 dark:border-base-800 text-sm">
+                        Добавить вариант
+                    </a>
+                    <a href="{{ variants_list_url }}" class="px-3 py-2 rounded-default border border-base-200 dark:border-base-800 text-sm">
+                        Все варианты
+                    </a>
+                </div>
+            </div>
+
+            {% if variants %}
+                <div class="border border-base-200 dark:border-base-800 rounded-default overflow-hidden">
+                    <div class="max-h-[420px] overflow-auto">
+                        <table class="w-full text-sm">
+                            <thead class="sticky top-0 bg-base-50 dark:bg-base-900">
+                                <tr class="text-left">
+                                    <th class="px-3 py-2">Характеристики</th>
+                                    <th class="px-3 py-2">Цена</th>
+                                    <th class="px-3 py-2">PV</th>
+                                    <th class="px-3 py-2">Остаток</th>
+                                    <th class="px-3 py-2">По умолчанию</th>
+                                    <th class="px-3 py-2">Вес</th>
+                                    <th class="px-3 py-2">Габариты</th>
+                                    <th class="px-3 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-base-200 dark:divide-base-800">
+                                {% for variant in variants %}
+                                    <tr>
+                                        <td class="px-3 py-2">
+                                            {% with values=variant.attribute_values.all %}
+                                                {% if values %}
+                                                    {% for v in values %}
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full bg-base-100 dark:bg-white/10 text-xs mr-1">
+                                                            {{ v.attribute.name }}: {{ v.value }}
+                                                        </span>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            {% endwith %}
+                                        </td>
+                                        <td class="px-3 py-2">{{ variant.price }}</td>
+                                        <td class="px-3 py-2">{{ variant.pv }}</td>
+                                        <td class="px-3 py-2">{{ variant.stock }}</td>
+                                        <td class="px-3 py-2">{% if variant.is_default %}Да{% else %}—{% endif %}</td>
+                                        <td class="px-3 py-2">{% if variant.weight_g %}{{ variant.weight_g }} г{% else %}—{% endif %}</td>
+                                        <td class="px-3 py-2">
+                                            {% if variant.length_mm or variant.width_mm or variant.height_mm %}
+                                                {{ variant.length_mm|default:"-" }}×{{ variant.width_mm|default:"-" }}×{{ variant.height_mm|default:"-" }} мм
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-3 py-2 text-right">
+                                            <a href="{% url 'admin:catalog_productvariant_change' variant.pk %}" class="text-primary-600 dark:text-primary-500">
+                                                Изменить
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-sm text-font-subtle-light dark:text-font-subtle-dark">
+                    Вариантов пока нет. Нажми «Добавить вариант» или «Генерировать».
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}

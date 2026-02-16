@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Избранное — Hardcode Store{% endblock %}
+{% block body_class %}store-page-favorites{% endblock %}
+
+{% block content %}
+<form id="csrf-form" style="display:none">{% csrf_token %}</form>
+<h1 class="store-page-title">Избранное</h1>
+
+{% if products %}
+<div class="store-grid" id="store-favorites-grid">
+    {% for product in products %}
+    {% if product.slug %}
+    <article class="store-card" data-product-pk="{{ product.pk }}">
+        <a href="{% url 'catalog:product_detail' product.slug %}" class="store-card-img-link">
+            <div class="store-card-img">
+                <button type="button" class="store-card-fav-btn store-card-fav-active" data-product-id="{{ product.pk }}" title="Убрать из избранного" aria-label="Избранное">
+                    <svg class="store-card-fav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </button>
+                {% if product.is_new %}
+                <span class="store-card-new-badge">NEW</span>
+                {% endif %}
+                {% if product.main_image %}
+                <img src="{{ product.main_image.file.url }}" alt="{{ product.name }}">
+                {% else %}
+                <span class="store-card-placeholder">📦</span>
+                {% endif %}
+                {% if product.variants_list|length > 1 %}
+                <span class="store-card-variants-hint" title="Есть выбор: размер, цвет">
+                    <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="4" cy="4" r="2.5" fill="#6366f1"/><circle cx="12" cy="4" r="2.5" fill="#ec4899"/><circle cx="4" cy="12" r="2.5" fill="#8b5cf6"/><circle cx="12" cy="12" r="2.5" fill="#06b6d4"/></svg>
+                </span>
+                {% endif %}
+            </div>
+        </a>
+        <div class="store-card-body">
+            <div class="store-card-info">
+                <a href="{% url 'catalog:product_detail' product.slug %}" class="store-card-title">{{ product.name }}</a>
+                <p class="store-card-price">
+                    {% if product.default_variant %}{{ product.default_variant.price|floatformat:0 }} ₽{% else %}—{% endif %}
+                </p>
+            </div>
+            {% if product.default_variant %}
+            <div class="store-card-actions" data-variant-id="{{ product.default_variant.pk }}" data-product-id="{{ product.pk }}" data-has-variants="{% if product.variants_list|length > 1 %}1{% else %}0{% endif %}">
+                {% if product.cart_qty > 0 %}
+                <div class="store-card-qty-controls">
+                    <button type="button" class="store-card-qty-btn" data-dir="-">−</button>
+                    <span class="store-card-qty-value">{{ product.cart_qty }}</span>
+                    <button type="button" class="store-card-qty-btn" data-dir="+">+</button>
+                </div>
+                {% else %}
+                <button type="button" class="store-card-add-btn" title="В корзину" aria-label="В корзину">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </article>
+    {% endif %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="store-favorites-empty">
+    <p>В избранном пока ничего нет.</p>
+    <a href="{% url 'catalog:product_list' %}" class="store-favorites-empty-link">В каталог</a>
+</div>
+{% endif %}
+
+{% if products %}
+<script>
+(function() {
+  var csrfEl = document.getElementById('csrf-form');
+  var csrfInput = csrfEl ? csrfEl.querySelector('[name=csrfmiddlewaretoken]') : null;
+  var csrfToken = csrfInput ? csrfInput.value : '';
+
+  function addToCart(variantId, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', variantId);
+    fd.append('qty', '1');
+    fd.append('source', 'catalog');
+    fetch('{% url "catalog:cart_add" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+  function setCartQty(variantId, productId, qty, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', variantId);
+    fd.append('product_id', productId);
+    fd.append('qty', String(qty));
+    fetch('{% url "catalog:cart_set" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+  function removeLastFromCart(productId, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('product_id', productId);
+    fetch('{% url "catalog:cart_remove_last" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+  function updateCartBadge(count) {
+    var badge = document.querySelector('.store-cart-badge');
+    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+  }
+  function bindQtyListeners(blk, vid, pid, hasVars) {
+    var minus = blk.querySelector('[data-dir="-"]');
+    var plus = blk.querySelector('[data-dir="+"]');
+    var val = blk.querySelector('.store-card-qty-value');
+    if (!minus || !plus || !val) return;
+    function updateMinus() {
+      if (hasVars) {
+        removeLastFromCart(pid, function(data) {
+          if (data.ok) {
+            var n = data.cart_qty !== undefined ? data.cart_qty : Math.max(0, parseInt(val.textContent, 10) - 1);
+            val.textContent = n;
+            updateCartBadge(data.count);
+            if (n === 0) {
+              blk.querySelector('.store-card-qty-controls').remove();
+              blk.insertAdjacentHTML('beforeend', '<button type="button" class="store-card-add-btn" title="В корзину"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>');
+              blk.querySelector('.store-card-add-btn').addEventListener('click', function(ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                addToCart(vid, function(d) {
+                  if (d.ok) {
+                    blk.querySelector('.store-card-add-btn').remove();
+                    blk.insertAdjacentHTML('beforeend', '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">1</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>');
+                    bindQtyListeners(blk, vid, pid, hasVars);
+                    updateCartBadge(d.count);
+                    if (window.triggerCartPulse) window.triggerCartPulse();
+                  }
+                });
+              });
+            }
+          }
+        });
+      } else {
+        var n = Math.max(0, parseInt(val.textContent, 10) - 1);
+        setCartQty(vid, pid, n, function(data) {
+          if (data.ok) {
+            val.textContent = n;
+            updateCartBadge(data.count);
+            if (n === 0) {
+              blk.querySelector('.store-card-qty-controls').remove();
+              blk.insertAdjacentHTML('beforeend', '<button type="button" class="store-card-add-btn" title="В корзину"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>');
+              blk.querySelector('.store-card-add-btn').addEventListener('click', function(ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                addToCart(vid, function(d) {
+                  if (d.ok) {
+                    blk.querySelector('.store-card-add-btn').remove();
+                    blk.insertAdjacentHTML('beforeend', '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">1</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>');
+                    bindQtyListeners(blk, vid, pid, hasVars);
+                    updateCartBadge(d.count);
+                    if (window.triggerCartPulse) window.triggerCartPulse();
+                  }
+                });
+              });
+            }
+          }
+        });
+      }
+    }
+    function updatePlus() {
+      if (hasVars) addToCart(vid, function(data) {
+        if (data.ok) { val.textContent = data.cart_qty !== undefined ? data.cart_qty : parseInt(val.textContent, 10) + 1; updateCartBadge(data.count); if (window.triggerCartPulse) window.triggerCartPulse(); }
+      });
+      else {
+        var n = parseInt(val.textContent, 10) + 1;
+        setCartQty(vid, pid, n, function(data) {
+          if (data.ok) { val.textContent = data.qty; updateCartBadge(data.count); }
+        });
+      }
+    }
+    minus.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); updateMinus(); });
+    plus.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); updatePlus(); });
+  }
+
+  document.querySelectorAll('.store-card-fav-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.add('store-fav-shimmer');
+      setTimeout(function() { btn.classList.remove('store-fav-shimmer'); }, 300);
+      var fd = new FormData();
+      fd.append('csrfmiddlewaretoken', csrfToken);
+      fetch('{% url "catalog:favorites_toggle" 1 %}'.replace(/\/1\/$/, '/' + btn.dataset.productId + '/'), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok && !data.added) {
+            var card = btn.closest('.store-card');
+            if (card) card.remove();
+            var favBadge = document.querySelector('.store-favorites-badge');
+            if (favBadge) { favBadge.textContent = data.count; favBadge.style.display = data.count > 0 ? '' : 'none'; }
+            var grid = document.getElementById('store-favorites-grid');
+            if (grid && !grid.querySelector('.store-card')) {
+              grid.outerHTML = '<div class="store-favorites-empty"><p>В избранном пока ничего нет.</p><a href="{% url "catalog:product_list" %}" class="store-favorites-empty-link">В каталог</a></div>';
+            }
+          } else if (data.ok) {
+            var favBadge = document.querySelector('.store-favorites-badge');
+            if (favBadge) { favBadge.textContent = data.count; favBadge.style.display = data.count > 0 ? '' : 'none'; }
+          }
+        })
+        .catch(function() {});
+    });
+  });
+
+  document.querySelectorAll('.store-card-actions').forEach(function(block) {
+    var variantId = block.dataset.variantId;
+    var addBtn = block.querySelector('.store-card-add-btn');
+    var productId = block.dataset.productId;
+    var hasVariants = block.dataset.hasVariants === '1';
+    if (addBtn) {
+      addBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        addToCart(variantId, function(data) {
+          if (data.ok) {
+            updateCartBadge(data.count);
+            if (window.triggerCartPulse) window.triggerCartPulse();
+            addBtn.remove();
+            var qty = data.cart_qty !== undefined ? data.cart_qty : 1;
+            block.insertAdjacentHTML('beforeend', '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">' + qty + '</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>');
+            bindQtyListeners(block, variantId, productId, hasVariants);
+          }
+        });
+      });
+    } else {
+      var qtyControls = block.querySelector('.store-card-qty-controls');
+      if (qtyControls) bindQtyListeners(block, variantId, productId, hasVariants);
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

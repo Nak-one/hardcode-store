@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Заказ {{ order.pk }}{% endblock %}
+{% block body_class %}store-page-order-detail{% endblock %}
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet">
+  <h1 class="store-cabinet-title">Заказ #{{ order.pk }}</h1>
+  <p class="store-cabinet-order-meta">{{ order.created_at|date:"d.m.Y H:i" }} | {{ order.get_status_display }}</p>
+  <section class="store-cabinet-section">
+    <h2 class="store-cabinet-section-title">Состав заказа</h2>
+    <ul class="store-order-detail-items">
+      {% for item in order.items.all %}
+      <li class="store-order-detail-item">
+        <span class="store-order-detail-item-name">{{ item.variant.product.name }}</span>
+        <span class="store-order-detail-item-qty">{{ item.quantity }} x {{ item.price }} руб.</span>
+        <span class="store-order-detail-item-total">{{ item.line_total }} руб.</span>
+        <span class="store-order-detail-item-pv">{{ item.pv|floatformat:0 }} PV × {{ item.quantity }} = {{ item.line_pv|floatformat:0 }} PV</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="store-order-detail-total">
+      Итого: <strong>{{ order.total }} руб.</strong>
+      <span class="store-order-detail-total-pv"> / {{ order.total_pv|default:0|floatformat:0 }} PV</span>
+    </p>
+  </section>
+  <section class="store-cabinet-section">
+    <h2 class="store-cabinet-section-title">Доставка и оплата</h2>
+    <p><strong>Доставка:</strong> {{ order.delivery_method.name }}</p>
+    {% if order.delivery_city %}<p><strong>Город:</strong> {{ order.delivery_city }}</p>{% endif %}
+    {% if order.delivery_address %}<p><strong>Адрес:</strong> {{ order.delivery_address }}</p>{% endif %}
+    <p><strong>Оплата:</strong> {{ order.get_payment_type_display }}</p>
+  </section>
+  <section class="store-cabinet-section">
+    <h2 class="store-cabinet-section-title">Контактные данные</h2>
+    <p><strong>Имя:</strong> {{ order.name }}</p>
+    <p><strong>Email:</strong> {{ order.email }}</p>
+    <p><strong>Телефон:</strong> {{ order.phone }}</p>
+    {% if order.comment %}<p><strong>Комментарий:</strong> {{ order.comment }}</p>{% endif %}
+  </section>
+  <p class="store-cabinet-footer">
+    <a href="{% url 'users:orders_list' %}">К списку заказов</a> | <a href="{% url 'catalog:product_list' %}">В каталог</a>
+  </p>
+</div>
+</div>
+{% endblock %}

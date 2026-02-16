@@ -1,0 +1,15 @@
+.inline-group[data-inline-type="tabular"] .border[data-simplebar] {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.inline-group[data-inline-type="tabular"] thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-base-50);
+}
+
+.dark .inline-group[data-inline-type="tabular"] thead th {
+    background: rgba(15, 23, 42, 0.9);
+}

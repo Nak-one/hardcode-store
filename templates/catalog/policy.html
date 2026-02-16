@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Политика конфиденциальности — Hardcode Store{% endblock %}
+{% block body_class %}store-page-policy{% endblock %}
+
+{% block store_hero_nav %}
+{% comment %}Скрыть hero на странице политики{% endcomment %}
+{% endblock %}
+
+{% block content %}
+<div class="store-policy">
+    <h1 class="store-page-title">Политика конфиденциальности</h1>
+    <div class="store-policy-content">
+        <p><strong>Hardcode Store</strong> — интернет-магазин. Мы собираем личные данные только для оформления и доставки заказов.</p>
+
+        <h2>Какие данные собираем</h2>
+        <ul>
+            <li><strong>Имя</strong> — для обращения при доставке</li>
+            <li><strong>Email</strong> — для подтверждения заказа и уведомлений</li>
+            <li><strong>Телефон</strong> — для связи курьера или СДЭК при доставке</li>
+            <li><strong>Адрес доставки</strong> — город, улица, дом, квартира — только для доставки товара</li>
+        </ul>
+
+        <h2>Цель сбора</h2>
+        <p>Все данные используются исключительно для:</p>
+        <ul>
+            <li>обработки и выполнения заказа</li>
+            <li>связи с покупателем по вопросам заказа</li>
+            <li>доставки товара по указанному адресу</li>
+        </ul>
+
+        <h2>Безопасность</h2>
+        <p>Сайт работает по защищённому протоколу HTTPS. Личные данные не передаются третьим лицам, кроме служб доставки (курьер, СДЭК) для выполнения заказа.</p>
+
+        <h2>Контакты</h2>
+        <p>По вопросам конфиденциальности: <a href="https://wet-dreams.fun" target="_blank" rel="noopener">HardCore IT</a></p>
+    </div>
+    <p><a href="{% url 'catalog:product_list' %}" class="store-policy-back">← В каталог</a></p>
+</div>
+{% endblock %}

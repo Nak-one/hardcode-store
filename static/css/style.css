@@ -1,0 +1,9 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; line-height: 1.5; color: #1a1a1a; }
+.container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+header { background: #05001a; color: #fff; padding: 12px 0; }
+header a { color: #d4ff3b; text-decoration: none; }
+header nav { display: inline-block; margin-left: 24px; }
+header nav a { color: rgba(255,255,255,0.9); margin-right: 16px; }
+main { padding: 32px 0; min-height: 60vh; }
+footer { background: #f0f0f0; padding: 16px 0; font-size: 14px; color: #666; }

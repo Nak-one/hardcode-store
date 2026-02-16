@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Каталог — Hardcode Store{% endblock %}
+
+{% block content %}
+<form id="csrf-form" style="display:none">{% csrf_token %}</form>
+<h1 class="store-page-title">
+    {% if filter_new %}NEW{% elif current_category %}{{ current_category.name }}{% else %}Каталог{% endif %}
+</h1>
+
+<div class="store-grid" id="store-product-grid" data-initial-filter="{% if filter_new %}new{% else %}{{ current_category.slug|default:'' }}{% endif %}">
+    {% for product in products %}
+    {% if product.slug %}
+    <article class="store-card" data-product-pk="{{ product.pk }}" data-product-slug="{{ product.slug }}" data-root-category-slug="{{ product.root_category_slug|default:'' }}" data-is-new="{% if product.is_new %}1{% else %}0{% endif %}">
+        <a href="{% url 'catalog:product_detail' product.slug %}" class="store-card-img-link">
+            <div class="store-card-img">
+                <button type="button" class="store-card-quickview-btn" data-product-slug="{{ product.slug }}" title="Быстрый просмотр" aria-label="Быстрый просмотр">Быстрый просмотр</button>
+                <button type="button" class="store-card-fav-btn {% if product.is_in_favorites %}store-card-fav-active{% endif %}" data-product-id="{{ product.pk }}" title="{% if product.is_in_favorites %}Убрать из избранного{% else %}В избранное{% endif %}" aria-label="Избранное">
+                    <svg class="store-card-fav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </button>
+                {% if product.is_new %}
+                <span class="store-card-new-badge">NEW</span>
+                {% endif %}
+                {% if product.main_image %}
+                <img src="{{ product.main_image.file.url }}" alt="{{ product.name }}">
+                {% else %}
+                <span class="store-card-placeholder">📦</span>
+                {% endif %}
+                {% if product.variants_list|length > 1 %}
+                <span class="store-card-variants-hint" title="Есть выбор: размер, цвет">
+                    <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="4" cy="4" r="2.5" fill="#6366f1"/><circle cx="12" cy="4" r="2.5" fill="#ec4899"/><circle cx="4" cy="12" r="2.5" fill="#8b5cf6"/><circle cx="12" cy="12" r="2.5" fill="#06b6d4"/></svg>
+                </span>
+                {% endif %}
+            </div>
+        </a>
+        <div class="store-card-body">
+            <div class="store-card-info">
+                <a href="{% url 'catalog:product_detail' product.slug %}" class="store-card-title">{{ product.name }}</a>
+                <p class="store-card-price">
+                    <span class="store-card-price-value">
+                        {% if product.default_variant %}{{ product.default_variant.price|floatformat:2 }} ₽{% else %}—{% endif %}
+                    </span>
+                    {% if product.default_variant %}
+                    <span class="store-card-price-right">
+                        <span class="store-card-price-sep">|</span>
+                        <span class="store-card-pv-inline">{{ product.default_variant.pv|floatformat:1 }} PV</span>
+                    </span>
+                    {% endif %}
+                </p>
+            </div>
+            {% if product.default_variant %}
+            <div class="store-card-actions" data-variant-id="{{ product.default_variant.pk }}" data-product-id="{{ product.pk }}" data-has-variants="{% if product.variants_list|length > 1 %}1{% else %}0{% endif %}">
+                {% if product.cart_qty > 0 %}
+                <div class="store-card-qty-controls">
+                    <button type="button" class="store-card-qty-btn" data-dir="-">−</button>
+                    <span class="store-card-qty-value">{{ product.cart_qty }}</span>
+                    <button type="button" class="store-card-qty-btn" data-dir="+">+</button>
+                </div>
+                {% else %}
+                <button type="button" class="store-card-add-btn" title="В корзину" aria-label="В корзину">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </article>
+    {% endif %}
+    {% empty %}
+    <p class="store-grid-empty" id="store-grid-empty-all">Товаров пока нет.</p>
+    {% endfor %}
+    <p class="store-grid-empty" id="store-grid-empty-filter" style="display:none;">В этой категории пока нет товаров.</p>
+</div>
+
+<!-- Quick-view modal -->
+<div class="store-quickview-modal" id="store-quickview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="qv-modal-title">
+  <div class="store-quickview-overlay" id="store-quickview-overlay"></div>
+  <div class="store-quickview-dialog" id="store-quickview-dialog">
+    <button type="button" class="store-quickview-close" id="store-quickview-close" aria-label="Закрыть">&times;</button>
+    <div class="store-quickview-content" id="store-quickview-content"></div>
+  </div>
+</div>
+
+{% if recent_products %}
+<section class="store-recent-section" aria-label="Недавно просмотренные">
+    <h2 class="store-recent-title">Вы смотрели</h2>
+    <div class="store-grid store-recent-grid">
+        {% for p in recent_products %}
+        {% if p.slug %}
+        <article class="store-card">
+            <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-img-link">
+                <div class="store-card-img">
+                    {% if p.main_image %}
+                    <img src="{{ p.main_image.file.url }}" alt="{{ p.name }}" loading="lazy">
+                    {% else %}
+                    <span class="store-card-placeholder">📦</span>
+                    {% endif %}
+                </div>
+            </a>
+            <div class="store-card-body">
+                <div class="store-card-info">
+                    <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-title">{{ p.name }}</a>
+                    <p class="store-card-price">
+                        <span class="store-card-price-value">{% if p.default_variant %}{{ p.default_variant.price|floatformat:2 }} ₽{% else %}—{% endif %}</span>
+                        {% if p.default_variant %}
+                        <span class="store-card-price-right">
+                            <span class="store-card-price-sep">|</span>
+                            <span class="store-card-pv-inline">{{ p.default_variant.pv|floatformat:1 }} PV</span>
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </article>
+        {% endif %}
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<script>
+(function() {
+  var csrfEl = document.getElementById('csrf-form');
+  var csrfInput = csrfEl ? csrfEl.querySelector('[name=csrfmiddlewaretoken]') : null;
+  var csrfToken = csrfInput ? csrfInput.value : '';
+
+  function addToCart(variantId, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', variantId);
+    fd.append('qty', '1');
+    fd.append('source', 'catalog');
+    fetch('{% url "catalog:cart_add" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  function setCartQty(variantId, productId, qty, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', variantId);
+    fd.append('product_id', productId);
+    fd.append('qty', String(qty));
+    fetch('{% url "catalog:cart_set" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  function removeLastFromCart(productId, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('product_id', productId);
+    fetch('{% url "catalog:cart_remove_last" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (cb) cb(data); })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  function updateCartBadge(count) {
+    var badge = document.querySelector('.store-cart-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? '' : 'none';
+    }
+  }
+
+  function toggleFavorites(productId, btn) {
+    btn.classList.add('store-fav-shimmer');
+    setTimeout(function() { btn.classList.remove('store-fav-shimmer'); }, 300);
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fetch('{% url "catalog:favorites_toggle" 1 %}'.replace(/\/1\/$/, '/' + productId + '/'), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          btn.classList.toggle('store-card-fav-active', data.added);
+          btn.title = data.added ? 'Убрать из избранного' : 'В избранное';
+          var favBadge = document.querySelector('.store-favorites-badge');
+          if (favBadge) {
+            favBadge.textContent = data.count;
+            favBadge.style.display = data.count > 0 ? '' : 'none';
+          }
+        }
+      })
+      .catch(function() {});
+  }
+
+  document.querySelectorAll('.store-card-fav-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorites(btn.dataset.productId, btn);
+    });
+  });
+
+  document.querySelectorAll('.store-card-actions').forEach(function(block) {
+    var variantId = block.dataset.variantId;
+    var addBtn = block.querySelector('.store-card-add-btn');
+    var qtyControls = block.querySelector('.store-card-qty-controls');
+    var qtyValue = block.querySelector('.store-card-qty-value');
+    var minusBtn = block.querySelector('[data-dir="-"]');
+    var plusBtn = block.querySelector('[data-dir="+"]');
+
+    var productId = block.dataset.productId;
+    var hasVariants = block.dataset.hasVariants === '1';
+
+    if (addBtn) {
+      addBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        addToCart(variantId, function(data) {
+          if (data.ok) {
+            updateCartBadge(data.count);
+            if (window.triggerCartPulse) window.triggerCartPulse();
+            addBtn.remove();
+            var qty = (data.cart_qty !== undefined ? data.cart_qty : 1);
+            var html = '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">' + qty + '</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>';
+            block.insertAdjacentHTML('beforeend', html);
+            bindQtyListeners(block, variantId, productId, hasVariants);
+          }
+        });
+      });
+    }
+
+    function bindQtyListeners(blk, vid, pid, hasVars) {
+      var minus = blk.querySelector('[data-dir="-"]');
+      var plus = blk.querySelector('[data-dir="+"]');
+      var val = blk.querySelector('.store-card-qty-value');
+      if (!minus || !plus || !val) return;
+      function updatePlus() {
+        addToCart(vid, function(data) {
+          if (data.ok) {
+            val.textContent = data.cart_qty !== undefined ? data.cart_qty : (parseInt(val.textContent, 10) + 1);
+            updateCartBadge(data.count);
+            if (window.triggerCartPulse) window.triggerCartPulse();
+          }
+        });
+      }
+      function updateMinus() {
+        if (hasVars) {
+          removeLastFromCart(pid, function(data) {
+            if (data.ok) {
+              var n = data.cart_qty !== undefined ? data.cart_qty : Math.max(0, parseInt(val.textContent, 10) - 1);
+              val.textContent = n;
+              updateCartBadge(data.count);
+              if (n === 0) {
+                blk.querySelector('.store-card-qty-controls').remove();
+                blk.insertAdjacentHTML('beforeend', '<button type="button" class="store-card-add-btn" title="В корзину" aria-label="В корзину"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>');
+                blk.querySelector('.store-card-add-btn').addEventListener('click', function(ev) {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  addToCart(vid, function(d) {
+                    if (d.ok) {
+                      blk.querySelector('.store-card-add-btn').remove();
+                      blk.insertAdjacentHTML('beforeend', '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">1</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>');
+                      bindQtyListeners(blk, vid, pid, hasVars);
+                      updateCartBadge(d.count);
+                      if (window.triggerCartPulse) window.triggerCartPulse();
+                    }
+                  });
+                });
+              }
+            }
+          });
+        } else {
+          var n = Math.max(0, parseInt(val.textContent, 10) - 1);
+          setCartQty(vid, pid, n, function(data) {
+            if (data.ok) {
+              val.textContent = n;
+              updateCartBadge(data.count);
+              if (n === 0) {
+                blk.querySelector('.store-card-qty-controls').remove();
+                blk.insertAdjacentHTML('beforeend', '<button type="button" class="store-card-add-btn" title="В корзину" aria-label="В корзину"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>');
+                blk.querySelector('.store-card-add-btn').addEventListener('click', function(ev) {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  addToCart(vid, function(d) {
+                    if (d.ok) {
+                      blk.querySelector('.store-card-add-btn').remove();
+                      blk.insertAdjacentHTML('beforeend', '<div class="store-card-qty-controls"><button type="button" class="store-card-qty-btn" data-dir="-">−</button><span class="store-card-qty-value">1</span><button type="button" class="store-card-qty-btn" data-dir="+">+</button></div>');
+                      bindQtyListeners(blk, vid, pid, hasVars);
+                      updateCartBadge(d.count);
+                      if (window.triggerCartPulse) window.triggerCartPulse();
+                    }
+                  });
+                });
+              }
+            }
+          });
+        }
+      }
+      minus.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); updateMinus(); });
+      plus.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hasVars) {
+          updatePlus();
+        } else {
+          var n = parseInt(val.textContent, 10) + 1;
+          setCartQty(vid, pid, n, function(data) {
+            if (data.ok) { val.textContent = data.qty; updateCartBadge(data.count); }
+          });
+        }
+      });
+    }
+
+    if (minusBtn && plusBtn && qtyValue) {
+      bindQtyListeners(block, variantId, productId, hasVariants);
+    }
+  });
+
+})();
+
+// Quick-view modal
+(function() {
+  var modal = document.getElementById('store-quickview-modal');
+  var overlay = document.getElementById('store-quickview-overlay');
+  var dialog = document.getElementById('store-quickview-dialog');
+  var content = document.getElementById('store-quickview-content');
+  var closeBtn = document.getElementById('store-quickview-close');
+  var csrfInput = document.getElementById('csrf-form') ? document.getElementById('csrf-form').querySelector('[name=csrfmiddlewaretoken]') : null;
+  var csrfToken = csrfInput ? csrfInput.value : '';
+
+  function closeModal() {
+    if (modal) {
+      modal.classList.remove('store-quickview-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  }
+
+  function bindQuickViewForm(container) {
+    if (!container) return;
+    var form = container.querySelector('.store-quickview-form');
+    var qvAttrs = container.querySelector('#qv-attrs');
+    var qvFlat = container.querySelector('#qv-flat');
+    var variantInput = container.querySelector('#qv-variant-id');
+    var priceEl = container.querySelector('#qv-price');
+    var addUrl = form ? form.dataset.cartAddUrl : '';
+
+    if (qvAttrs && variantInput && form) {
+      var variantsData = {};
+      try { variantsData = JSON.parse(qvAttrs.dataset.variants || '{}'); } catch(e) {}
+      function getIds(el) { return (el.dataset && el.dataset.ids || '').split(',').filter(Boolean); }
+      function updateVariant() {
+        var idsSets = [];
+        qvAttrs.querySelectorAll('.store-quickview-attr').forEach(function(row) {
+          var chosen = row.querySelector('.store-variant-opt.selected');
+          var pill = row.querySelector('.store-variant-opt');
+          var ids = chosen || pill ? getIds(chosen || pill) : [];
+          if (ids.length) idsSets.push(ids);
+        });
+        if (idsSets.length === 0) return;
+        var common = idsSets[0].filter(function(id) { return idsSets.every(function(s) { return s.indexOf(id) !== -1; }); });
+        var vid = common[0];
+        variantInput.value = vid || '';
+        if (priceEl) priceEl.textContent = variantsData[vid] ? variantsData[vid].price + ' ₽' : '—';
+      }
+      qvAttrs.querySelectorAll('.store-variant-opt').forEach(function(pill) {
+        pill.addEventListener('click', function(e) {
+          if (pill.dataset.hasStock === '0' || pill.querySelector('input').disabled) return;
+          var row = pill.closest('.store-quickview-attr');
+          if (row) {
+            row.querySelectorAll('.store-variant-opt').forEach(function(p) { p.classList.remove('selected'); });
+            pill.classList.add('selected');
+            pill.querySelector('input').checked = true;
+            updateVariant();
+          }
+        });
+      });
+    }
+    if (qvFlat && priceEl) {
+      qvFlat.querySelectorAll('.store-variant-opt').forEach(function(el) {
+        el.addEventListener('click', function() {
+          qvFlat.querySelectorAll('.store-variant-opt').forEach(function(o) { o.classList.remove('selected'); });
+          el.classList.add('selected');
+          el.querySelector('input').checked = true;
+          priceEl.textContent = (el.dataset.price || '') + ' ₽';
+        });
+      });
+    }
+    if (form && addUrl) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var vid = form.querySelector('input[name="variant_id"]');
+        if (!vid || !vid.value) return;
+        var fd = new FormData(form);
+        fd.append('qty', '1');
+        fetch(addUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.ok) {
+              var badge = document.querySelector('.store-cart-badge');
+              if (badge) { badge.textContent = data.count; badge.style.display = data.count > 0 ? '' : 'none'; }
+              if (window.triggerCartPulse) window.triggerCartPulse();
+              closeModal();
+            } else {
+              alert(data.error || 'Ошибка добавления');
+            }
+          })
+          .catch(function() { alert('Ошибка'); });
+      });
+    }
+  }
+
+  document.querySelectorAll('.store-card-quickview-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var slug = btn.dataset.productSlug;
+      if (!slug || !content) return;
+      content.innerHTML = '<p class="store-quickview-loading">Загрузка...</p>';
+      modal.classList.add('store-quickview-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      fetch('{% url "catalog:product_list" %}' + 'product/' + slug + '/quick/', { credentials: 'same-origin' })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+          content.innerHTML = html;
+          bindQuickViewForm(content.firstElementChild);
+        })
+        .catch(function() { content.innerHTML = '<p class="store-quickview-error">Ошибка загрузки</p>'; });
+    });
+  });
+
+  if (overlay) overlay.addEventListener('click', closeModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal && modal.classList.contains('store-quickview-open')) closeModal();
+  });
+})();
+
+// Фильтр категорий без перезагрузки страницы
+(function() {
+  var grid = document.getElementById('store-product-grid');
+  var pills = document.querySelectorAll('.store-cats .store-cat-pill');
+  if (!grid || !pills.length) return;
+
+  var cards = grid.querySelectorAll('.store-card');
+  var emptyAll = document.getElementById('store-grid-empty-all');
+  var emptyFilter = document.getElementById('store-grid-empty-filter');
+
+  function applyFilter(slug) {
+    var showAll = !slug || slug === 'all';
+    var showNew = slug === 'new';
+    var visible = 0;
+    cards.forEach(function(card) {
+      var match = showAll ? true : (showNew ? (card.dataset.isNew === '1') : (card.dataset.rootCategorySlug === slug));
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    if (emptyAll) emptyAll.style.display = (cards.length === 0 && (showAll || showNew)) ? 'block' : 'none';
+    if (emptyFilter) emptyFilter.style.display = (cards.length > 0 && visible === 0) ? 'block' : 'none';
+    pills.forEach(function(p) {
+      p.classList.toggle('active', (p.dataset.filter === slug) || (showAll && !showNew && p.dataset.filter === 'all'));
+    });
+    var url;
+    if (showNew) url = '{% url "catalog:product_list" %}?new=1';
+    else if (slug && slug !== 'all') url = '{% url "catalog:product_list" %}category/' + slug + '/';
+    else url = '{% url "catalog:product_list" %}';
+    if (window.location.pathname + (window.location.search || '') !== url) {
+      history.pushState({ filter: slug || 'all' }, '', url);
+    }
+    var titleEl = document.querySelector('.store-page-title');
+    if (titleEl) {
+      var activePill = document.querySelector('.store-cats .store-cat-pill.active');
+      titleEl.textContent = activePill ? (activePill.textContent.trim()) : 'Каталог';
+    }
+  }
+
+  pills.forEach(function(p) {
+    p.addEventListener('click', function(e) {
+      e.preventDefault();
+      var slug = p.dataset.filter || 'all';
+      applyFilter(slug === 'all' ? '' : slug);
+    });
+  });
+
+  window.addEventListener('popstate', function(e) {
+    var slug = (e.state && e.state.filter) || 'all';
+    if (window.location.search.indexOf('new=1') !== -1) slug = 'new';
+    applyFilter(slug === 'all' ? '' : slug);
+  });
+
+  var initial = grid.dataset.initialFilter || '';
+  applyFilter(initial);
+  if (!history.state) {
+    history.replaceState({ filter: initial || 'all' }, '', window.location.pathname + window.location.search);
+  }
+})();
+</script>
+{% endblock %}

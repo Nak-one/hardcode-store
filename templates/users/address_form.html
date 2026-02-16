@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ title }}{% endblock %}
+{% block body_class %}store-page-address-form{% endblock %}
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet store-cabinet-form">
+  <h1 class="store-cabinet-title">{{ title }}</h1>
+  <form method="post" action="{% if address %}{% url 'users:address_edit' address.pk %}{% else %}{% url 'users:address_add' %}{% endif %}" class="store-auth-form">
+    {% csrf_token %}
+    <div class="store-auth-field">
+      <label for="id_city">{{ form.city.label }}</label>
+      {{ form.city }}
+      {% if form.city.errors %}<span class="store-auth-error">{{ form.city.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label for="id_address">{{ form.address.label }}</label>
+      {{ form.address }}
+      {% if form.address.errors %}<span class="store-auth-error">{{ form.address.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label for="id_postal_code">{{ form.postal_code.label }}</label>
+      {{ form.postal_code }}
+      {% if form.postal_code.errors %}<span class="store-auth-error">{{ form.postal_code.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label class="store-address-checkbox">{{ form.is_default }} {{ form.is_default.label }}</label>
+    </div>
+    <button type="submit" class="store-auth-submit">Сохранить</button>
+  </form>
+  <p class="store-cabinet-footer" style="margin-top: 24px;">
+    <a href="{% url 'users:address_list' %}">К списку адресов</a>
+  </p>
+</div>
+</div>
+{% endblock %}

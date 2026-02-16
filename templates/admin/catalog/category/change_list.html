@@ -1,0 +1,128 @@
+{% extends "admin/change_list.html" %}
+{% load i18n mptt_tags admin_urls %}
+
+{% block content_title %}
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-semibold text-font-important-light dark:text-font-important-dark">
+            Категории — дерево
+        </h1>
+        <div class="flex gap-2">
+            <button type="button" id="tree-expand-all" class="px-3 py-2 rounded-default border border-base-200 dark:border-base-800 text-sm">
+                Развернуть все
+            </button>
+            <button type="button" id="tree-collapse-all" class="px-3 py-2 rounded-default border border-base-200 dark:border-base-800 text-sm">
+                Свернуть все
+            </button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block result_list %}
+    <div class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-4">
+        <div class="text-xs text-font-subtle-light dark:text-font-subtle-dark mb-3">
+            Клик по категории открывает карточку. Перетаскивание можно включить позже.
+        </div>
+        <ul class="space-y-2" id="category-tree">
+            {% recursetree cl.result_list %}
+                <li data-node-id="{{ node.pk }}">
+                    <div class="tree-row">
+                        {% if not node.is_leaf_node %}
+                            <button type="button"
+                                    class="tree-toggle"
+                                    data-target="children-{{ node.pk }}"
+                                    aria-expanded="true">−</button>
+                        {% else %}
+                            <span class="w-6 h-6"></span>
+                        {% endif %}
+                        <span class="tree-connector"></span>
+                        <a href="{% url 'admin:catalog_category_change' node.pk %}" class="tree-label">
+                            {{ node.name }}
+                        </a>
+                        <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                            ({{ node.slug }})
+                        </span>
+                    </div>
+                    {% if not node.is_leaf_node %}
+                        <ul id="children-{{ node.pk }}" class="mt-2 space-y-2">
+                            {{ children }}
+                        </ul>
+                    {% endif %}
+                </li>
+            {% endrecursetree %}
+        </ul>
+    </div>
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        #category-tree li { list-style: none; }
+        #category-tree ul { margin-left: 18px; padding-left: 12px; border-left: 1px solid rgba(148, 163, 184, 0.2); }
+        #category-tree .tree-row { display: flex; align-items: center; gap: 10px; }
+        #category-tree .tree-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(15, 23, 42, 0.35);
+        }
+        #category-tree .tree-toggle {
+            width: 24px;
+            height: 24px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: transparent;
+            color: #cbd5f5;
+            line-height: 1;
+            font-weight: 700;
+        }
+        #category-tree .tree-connector {
+            width: 12px;
+            height: 1px;
+            background: rgba(148, 163, 184, 0.25);
+        }
+        .tree-hidden { display: none; }
+    </style>
+{% endblock %}
+
+{% block footer %}
+    {{ block.super }}
+    <script>
+        (function () {
+            function setExpanded(btn, expanded) {
+                btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+                btn.textContent = expanded ? "−" : "+";
+                var targetId = btn.getAttribute("data-target");
+                var target = document.getElementById(targetId);
+                if (target) target.classList.toggle("tree-hidden", !expanded);
+            }
+
+            document.querySelectorAll(".tree-toggle").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    var expanded = btn.getAttribute("aria-expanded") !== "true";
+                    setExpanded(btn, expanded);
+                });
+            });
+
+            var expandAll = document.getElementById("tree-expand-all");
+            var collapseAll = document.getElementById("tree-collapse-all");
+
+            if (expandAll) {
+                expandAll.addEventListener("click", function () {
+                    document.querySelectorAll(".tree-toggle").forEach(function (btn) {
+                        setExpanded(btn, true);
+                    });
+                });
+            }
+            if (collapseAll) {
+                collapseAll.addEventListener("click", function () {
+                    document.querySelectorAll(".tree-toggle").forEach(function (btn) {
+                        setExpanded(btn, false);
+                    });
+                });
+            }
+        })();
+    </script>
+{% endblock %}

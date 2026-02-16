@@ -1,0 +1,165 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_("Django site admin") }}{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+    <div class="grid gap-6 lg:grid-cols-2">
+        <section class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6 shadow-xs">
+            <div class="flex items-center gap-3 mb-5">
+                <span class="material-symbols-outlined text-primary-600 dark:text-primary-500">inventory_2</span>
+                <div>
+                    <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark">
+                        Каталог
+                    </h2>
+                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                        Основные сущности магазина
+                    </p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <a href="{% url 'admin:catalog_product_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">shopping_bag</span>
+                        Товары
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">карточки</span>
+                </a>
+                <a href="{% url 'admin:catalog_productvariant_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">tune</span>
+                        Варианты товаров
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">цвет/размер</span>
+                </a>
+                <a href="{% url 'admin:catalog_productmedia_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">photo_library</span>
+                        Фото и видео товаров
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">медиа</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6 shadow-xs">
+            <div class="flex items-center gap-3 mb-5">
+                <span class="material-symbols-outlined text-primary-600 dark:text-primary-500">category</span>
+                <div>
+                    <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark">
+                        Справочники
+                    </h2>
+                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                        Настройки и словари
+                    </p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <a href="{% url 'admin:catalog_category_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">grid_view</span>
+                        Категории
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">иерархия</span>
+                </a>
+                <a href="{% url 'admin:catalog_brand_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">sell</span>
+                        Бренды
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">марки</span>
+                </a>
+                <a href="{% url 'admin:catalog_productattribute_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">settings</span>
+                        Атрибуты
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">типы</span>
+                </a>
+                <a href="{% url 'admin:catalog_productattributevalue_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">list</span>
+                        Значения атрибутов
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">значения</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6 shadow-xs">
+            <div class="flex items-center gap-3 mb-5">
+                <span class="material-symbols-outlined text-primary-600 dark:text-primary-500">group</span>
+                <div>
+                    <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark">
+                        Пользователи и доступ
+                    </h2>
+                    <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                        Роли и права доступа
+                    </p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <a href="{% url 'admin:users_user_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">person</span>
+                        Пользователи
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">аккаунты</span>
+                </a>
+                <a href="{% url 'admin:auth_group_changelist' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">badge</span>
+                        Группы
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">права</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="rounded-default border border-base-200 dark:border-base-800 bg-gradient-to-br from-primary-600/15 to-transparent dark:from-primary-500/10 dark:to-transparent p-6 shadow-xs">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary-600 dark:text-primary-500">bolt</span>
+                    <div>
+                        <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark">
+                            Быстрые команды
+                        </h2>
+                        <p class="text-xs text-font-subtle-light dark:text-font-subtle-dark">
+                            Действия в один клик
+                        </p>
+                    </div>
+                </div>
+                <span class="text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-primary-600/15 text-primary-600 dark:text-primary-400">
+                    Команды
+                </span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <a href="{% url 'admin:catalog_product_add' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default bg-primary-600 text-white hover:bg-primary-700">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined">add_circle</span>
+                        Добавить товар
+                    </span>
+                    <span class="text-xs text-white/70">создать</span>
+                </a>
+                <a href="{% url 'admin:catalog_category_add' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">add</span>
+                        Добавить категорию
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">новая</span>
+                </a>
+                <a href="{% url 'admin:catalog_brand_add' %}" class="flex items-center justify-between h-[42px] px-3 rounded-default border border-base-200/70 dark:border-base-800 hover:bg-base-50 dark:hover:bg-base-800">
+                    <span class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-base-500">add</span>
+                        Добавить бренд
+                    </span>
+                    <span class="text-xs text-font-subtle-light dark:text-font-subtle-dark">новый</span>
+                </a>
+            </div>
+        </section>
+    </div>
+{% endblock %}

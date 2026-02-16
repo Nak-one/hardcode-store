@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Личный кабинет — Hardcode Store{% endblock %}
+{% block body_class %}store-page-cabinet{% endblock %}
+
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet">
+  <h1 class="store-cabinet-title">Личный кабинет</h1>
+  <p class="store-cabinet-welcome">Добро пожаловать, {{ user.first_name|default:user.email }}.</p>
+
+  <section class="store-cabinet-section store-cabinet-quick-links">
+    <h2 class="store-cabinet-section-title">Быстрые действия</h2>
+    <div class="store-cabinet-quick-grid">
+      <a href="{% url 'catalog:product_list' %}" class="store-cabinet-quick-link">Каталог</a>
+      <a href="{% url 'catalog:cart' %}" class="store-cabinet-quick-link">Корзина</a>
+      <a href="{% url 'catalog:favorites' %}" class="store-cabinet-quick-link">Избранное</a>
+      <a href="{% url 'users:address_list' %}" class="store-cabinet-quick-link">Адреса доставки</a>
+      {% if user.is_business_user %}
+      <a href="{% url 'users:business_join' %}" class="store-cabinet-quick-link">Мой бизнес</a>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="store-cabinet-section">
+    <h2 class="store-cabinet-section-title">Последние заказы</h2>
+    {% if last_orders %}
+    <ul class="store-cabinet-orders">
+      {% for order in last_orders %}
+      <li class="store-cabinet-order">
+        <a href="{% url 'users:order_detail' order.pk %}" class="store-cabinet-order-link">
+          <span class="store-cabinet-order-id">Заказ #{{ order.number|default:order.pk }}</span>
+          <span class="store-cabinet-order-date">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+          <span class="store-cabinet-order-total">{{ order.total }} ₽</span>
+          <span class="store-cabinet-order-pv">{{ order.total_pv|default:0|floatformat:0 }} PV</span>
+          <span class="store-cabinet-order-status store-cabinet-order-status-{{ order.status }}">{{ order.get_status_display }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="store-cabinet-footer" style="margin-top: 16px;">
+      <a href="{% url 'users:orders_list' %}">Все заказы →</a>
+    </p>
+    {% else %}
+    <p class="store-cabinet-empty">Заказов пока нет.</p>
+    <a href="{% url 'users:orders_list' %}" class="store-cabinet-cta">Перейти к заказам</a>
+    ·
+    <a href="{% url 'catalog:product_list' %}" class="store-cabinet-cta">В каталог</a>
+    {% endif %}
+  </section>
+
+  <p class="store-cabinet-footer">
+    <a href="{% url 'catalog:product_list' %}">В каталог</a>
+    ·
+    <a href="{% url 'users:logout' %}">Выйти</a>
+  </p>
+</div>
+</div>
+{% endblock %}

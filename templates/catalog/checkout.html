@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Оформление заказа — Hardcode Store{% endblock %}
+{% block body_class %}store-page-checkout{% endblock %}
+
+{% block content %}
+<h1 class="store-page-title">Оформление заказа</h1>
+
+<div class="store-checkout">
+  <nav class="store-checkout-stepper" aria-label="Этапы оформления">
+    <div class="store-checkout-step store-checkout-step-active" data-step="1">
+      <span class="store-checkout-step-num">1</span>
+      <span class="store-checkout-step-label">Корзина</span>
+    </div>
+    <div class="store-checkout-step-line"></div>
+    <div class="store-checkout-step" data-step="2">
+      <span class="store-checkout-step-num">2</span>
+      <span class="store-checkout-step-label">Доставка</span>
+    </div>
+    <div class="store-checkout-step-line"></div>
+    <div class="store-checkout-step" data-step="3">
+      <span class="store-checkout-step-num">3</span>
+      <span class="store-checkout-step-label">Оплата</span>
+    </div>
+  </nav>
+
+  <form action="{% url 'catalog:checkout' %}" method="post" id="checkout-form" class="store-checkout-form">
+    {% csrf_token %}
+    <p class="store-checkout-hint">Заполните все поля — оформление займёт пару минут.</p>
+    <div class="store-checkout-panels">
+      <div class="store-checkout-panel store-checkout-panel-visible" data-panel="1">
+        <h2 class="store-checkout-panel-title">1. Состав заказа</h2>
+        <div class="store-checkout-items">
+          {% for item in cart_items %}
+          <div class="store-checkout-item">
+            <div class="store-checkout-item-img">
+              {% if item.image %}
+              <img src="{{ item.image.file.url }}" alt="{{ item.variant.product.name }}">
+              {% else %}
+              <div class="store-checkout-item-placeholder">📦</div>
+              {% endif %}
+            </div>
+            <div class="store-checkout-item-info">
+              <div class="store-checkout-item-title">{{ item.variant.product.name }}</div>
+              {% if item.has_variants and not item.needs_selection %}
+              <div class="store-checkout-item-variant">
+                {% for av in item.variant.attribute_values.all %}
+                <span class="store-cart-variant-tag">{{ av.attribute.name }}: {{ av.value }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+              <div class="store-checkout-item-price">
+                {{ item.variant.price }} ₽ × {{ item.qty }} = {{ item.line_total }} ₽
+                <span class="store-checkout-item-pv">PV: {{ item.pv|floatformat:0 }} × {{ item.qty }} = {{ item.line_pv|floatformat:0 }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="store-checkout-total">
+          <div>Итого: {{ total }} ₽</div>
+          <div class="store-checkout-total-pv">Итого PV: {{ total_pv|floatformat:0 }}</div>
+        </div>
+      </div>
+
+      <div class="store-checkout-panel" data-panel="2">
+        <h2 class="store-checkout-panel-title">Способ доставки</h2>
+        <div class="store-checkout-delivery">
+          {% for dm in delivery_methods %}
+          <label class="store-checkout-delivery-opt">
+            <input type="radio" name="delivery_method" value="{{ dm.pk }}" {% if forloop.first %}checked{% endif %} data-type="{{ dm.delivery_type }}">
+            <span>{{ dm.name }}</span>
+          </label>
+          {% endfor %}
+          <div class="store-checkout-address" id="delivery-address-fields">
+            {% if user_addresses %}
+            <div class="store-checkout-field store-checkout-saved-addresses">
+              <label for="id_saved_address">Сохранённый адрес</label>
+              <select id="id_saved_address" class="store-checkout-saved-select">
+                <option value="">— Ввести вручную —</option>
+                {% for addr in user_addresses %}
+                <option value="{{ addr.pk }}" data-city="{{ addr.city }}" data-address="{{ addr.address }}">{{ addr.city }}, {{ addr.address|truncatewords:8 }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+            <div class="store-checkout-field store-checkout-city-wrap">
+              <label for="id_delivery_city">Город</label>
+              <input type="text" id="id_delivery_city" name="delivery_city" value="{{ checkout_delivery_city|default:'' }}" placeholder="Начните вводить город" autocomplete="off">
+              <div class="store-checkout-city-suggest" id="city-suggest" role="listbox" aria-hidden="true"></div>
+            </div>
+            <div class="store-checkout-field">
+              <label for="id_delivery_address">Адрес доставки</label>
+              <textarea id="id_delivery_address" name="delivery_address" rows="2" placeholder="Улица, дом, квартира">{{ checkout_delivery_address|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="store-checkout-panel" data-panel="3">
+        <h2 class="store-checkout-panel-title">3. Контактные данные и оплата</h2>
+        <p class="store-checkout-almost">Почти готово!</p>
+        <div class="store-checkout-fields">
+          <div class="store-checkout-field">
+            <label for="id_name">Имя *</label>
+            <input type="text" id="id_name" name="name" value="{{ checkout_name|default:'' }}" required placeholder="Иван Иванов">
+          </div>
+          <div class="store-checkout-field">
+            <label for="id_email">Email *</label>
+            <input type="email" id="id_email" name="email" value="{{ checkout_email|default:'' }}" required placeholder="email@example.com">
+          </div>
+          <div class="store-checkout-field">
+            <label for="id_phone">Телефон *</label>
+            <input type="tel" id="id_phone" name="phone" value="{{ checkout_phone|default:'' }}" required placeholder="+7 900 123-45-67">
+            <span class="store-checkout-field-hint">Только для SMS о доставке</span>
+          </div>
+          <div class="store-checkout-field">
+            <label>Способ оплаты</label>
+            <div class="store-checkout-payment">
+              <label class="store-checkout-payment-opt">
+                <input type="radio" name="payment_type" value="cash" {% if checkout_payment_type != 'online' %}checked{% endif %}>
+                <span>При получении</span>
+              </label>
+              <label class="store-checkout-payment-opt">
+                <input type="radio" name="payment_type" value="online" {% if checkout_payment_type == 'online' %}checked{% endif %}>
+                <span>Онлайн (скоро)</span>
+              </label>
+            </div>
+            <div class="store-checkout-wallet-hint">Быстрая оплата (скоро):</div>
+            <div class="store-checkout-wallet-btns">
+              <button type="button" class="store-checkout-wallet-btn" disabled title="Скоро">
+                <span class="store-wallet-icon" aria-hidden="true">🍎</span> Apple Pay
+              </button>
+              <button type="button" class="store-checkout-wallet-btn" disabled title="Скоро">
+                <span class="store-wallet-icon" aria-hidden="true">G</span> Google Pay
+              </button>
+            </div>
+          </div>
+          <div class="store-checkout-field">
+            <label for="id_comment">Комментарий к заказу</label>
+            <textarea id="id_comment" name="comment" rows="3" placeholder="Необязательно">{{ checkout_comment|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="store-checkout-actions">
+      <button type="button" class="store-checkout-btn store-checkout-btn-back" id="checkout-back" style="display:none">Назад</button>
+      <button type="button" class="store-checkout-btn store-checkout-btn-next" id="checkout-next">Далее</button>
+      <button type="submit" class="store-checkout-btn store-checkout-btn-submit" id="checkout-submit" style="display:none">Оформить заказ</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function() {
+  var form = document.getElementById('checkout-form');
+  var panels = form.querySelectorAll('.store-checkout-panel');
+  var steps = document.querySelectorAll('.store-checkout-step');
+  var backBtn = document.getElementById('checkout-back');
+  var nextBtn = document.getElementById('checkout-next');
+  var submitBtn = document.getElementById('checkout-submit');
+  var addressFields = document.getElementById('delivery-address-fields');
+  var deliveryRadios = form.querySelectorAll('input[name="delivery_method"]');
+
+  var currentStep = 1;
+  var totalSteps = 3;
+
+  function showStep(n) {
+    currentStep = Math.max(1, Math.min(totalSteps, n));
+    panels.forEach(function(p) {
+      var num = parseInt(p.dataset.panel, 10);
+      p.classList.toggle('store-checkout-panel-visible', num === currentStep);
+    });
+    steps.forEach(function(s) {
+      var num = parseInt(s.dataset.step, 10);
+      s.classList.toggle('store-checkout-step-active', num <= currentStep);
+      s.classList.toggle('store-checkout-step-current', num === currentStep);
+    });
+    backBtn.style.display = currentStep > 1 ? '' : 'none';
+    nextBtn.style.display = currentStep < totalSteps ? '' : 'none';
+    submitBtn.style.display = currentStep === totalSteps ? '' : 'none';
+  }
+
+  function validateStep(n) {
+    if (n === 1) return true;
+    if (n === 2) {
+      var checked = form.querySelector('input[name="delivery_method"]:checked');
+      if (!checked) return false;
+      var type = checked.dataset.type;
+      var addr = form.querySelector('#id_delivery_address').value.trim();
+      if (type === 'pickup') return !!addr;
+      var city = form.querySelector('#id_delivery_city').value.trim();
+      return !!(city && addr);
+    }
+    if (n === 3) {
+      var name = form.querySelector('#id_name').value.trim();
+      var email = form.querySelector('#id_email').value.trim();
+      var phone = form.querySelector('#id_phone').value.trim();
+      return !!(name && email && phone && email.indexOf('@') !== -1);
+    }
+    return true;
+  }
+
+  function toggleAddressFields() {
+    var checked = form.querySelector('input[name="delivery_method"]:checked');
+    addressFields.style.display = (!checked || checked.dataset.type !== 'pickup') ? '' : 'none';
+  }
+
+  deliveryRadios.forEach(function(r) {
+    r.addEventListener('change', toggleAddressFields);
+  });
+  toggleAddressFields();
+
+  var savedSelect = document.getElementById('id_saved_address');
+  if (savedSelect) {
+    savedSelect.addEventListener('change', function() {
+      var opt = this.options[this.selectedIndex];
+      if (opt && opt.value) {
+        document.getElementById('id_delivery_city').value = opt.dataset.city || '';
+        document.getElementById('id_delivery_address').value = opt.dataset.address || '';
+      }
+    });
+  }
+
+  (function cityAutocomplete() {
+    var input = document.getElementById('id_delivery_city');
+    var list = document.getElementById('city-suggest');
+    var debounceTimer;
+
+    function hideSuggest() {
+      list.innerHTML = '';
+      list.setAttribute('aria-hidden', 'true');
+      list.style.display = 'none';
+    }
+
+    function showSuggest(names) {
+      list.innerHTML = '';
+      if (!names.length) { hideSuggest(); return; }
+      names.forEach(function(name) {
+        var el = document.createElement('div');
+        el.className = 'store-checkout-city-suggest-item';
+        el.setAttribute('role', 'option');
+        el.textContent = name;
+        el.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          input.value = name;
+          hideSuggest();
+          input.focus();
+        });
+        list.appendChild(el);
+      });
+      list.style.display = 'block';
+      list.setAttribute('aria-hidden', 'false');
+    }
+
+    function fetchCities(q) {
+      if (!q || q.length < 2) { hideSuggest(); return; }
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/cities/?q=' + encodeURIComponent(q), true);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status === 200) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            showSuggest(data.results || []);
+          } catch (e) { hideSuggest(); }
+        } else { hideSuggest(); }
+      };
+      xhr.send();
+    }
+
+    input.addEventListener('input', function() {
+      var q = this.value.trim();
+      clearTimeout(debounceTimer);
+      if (!q) { hideSuggest(); return; }
+      debounceTimer = setTimeout(function() { fetchCities(q); }, 200);
+    });
+    input.addEventListener('focus', function() {
+      var q = this.value.trim();
+      if (q.length >= 2) fetchCities(q);
+    });
+    input.addEventListener('blur', function() { setTimeout(hideSuggest, 150); });
+    input.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideSuggest(); });
+    document.addEventListener('click', function(e) {
+      if (e.target !== input && !list.contains(e.target)) hideSuggest();
+    });
+  })();
+
+  backBtn.addEventListener('click', function() { showStep(currentStep - 1); });
+  nextBtn.addEventListener('click', function() {
+    if (!validateStep(currentStep)) { alert('Заполните все обязательные поля.'); return; }
+    showStep(currentStep + 1);
+  });
+  form.addEventListener('submit', function(e) {
+    if (currentStep !== totalSteps) { e.preventDefault(); return; }
+    if (!validateStep(3)) { e.preventDefault(); alert('Заполните имя, email и телефон.'); return; }
+  });
+
+  showStep(1);
+})();
+</script>
+{% endblock %}

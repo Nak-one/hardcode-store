@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Реферальная программа — Hardcode Store{% endblock %}
+{% block body_class %}store-page-referral{% endblock %}
+
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet store-cabinet-referral">
+  <h1 class="store-cabinet-title">Реферальная программа</h1>
+  <p class="store-cabinet-welcome">Приглашайте друзей по ссылке — они смогут зарегистрироваться по вашему приглашению.</p>
+
+{% if user.uuid %}
+  <section class="store-cabinet-section store-referral-block">
+    <h2 class="store-cabinet-section-title">Ваш UUID</h2>
+    <p class="store-referral-code">{{ user.uuid }}</p>
+    <h2 class="store-cabinet-section-title" style="margin-top: 20px;">Ваша ссылка</h2>
+    <div class="store-referral-link-wrap">
+      <input type="text" id="ref-link" class="store-referral-link-input" value="{{ ref_link }}" readonly>
+      <button type="button" class="store-referral-copy-btn" data-target="ref-link" aria-label="Копировать ссылку">Копировать</button>
+    </div>
+    <p class="store-referral-hint">Отправьте ссылку другу. Когда он зарегистрируется по ней, в его профиле будет указано, что его пригласили вы.</p>
+  </section>
+  {% else %}
+  <p class="store-cabinet-empty">UUID пока не создан. Обратитесь в поддержку.</p>
+  {% endif %}
+
+  <p class="store-cabinet-footer">
+    <a href="{% url 'users:cabinet' %}">В кабинет</a>
+  </p>
+</div>
+</div>
+<script>
+(function() {
+  var btn = document.querySelector('.store-referral-copy-btn');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-target');
+      var el = document.getElementById(id);
+      if (el) {
+        el.select();
+        el.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          btn.textContent = 'Скопировано!';
+          setTimeout(function() { btn.textContent = 'Копировать'; }, 2000);
+        } catch (e) {}
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

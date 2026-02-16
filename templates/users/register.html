@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Регистрация — Hardcode Store{% endblock %}
+{% block body_class %}store-page-register{% endblock %}
+
+{% block content %}
+<div class="store-auth-wrap">
+<div class="store-auth">
+  <h1 class="store-auth-title">Регистрация</h1>
+  <p class="store-auth-subtitle">Создайте аккаунт за минуту</p>
+  {% if ref_from_link %}
+  <div class="store-auth-ref-block">
+    {% if referrer %}
+    <span class="store-auth-ref-label">Приглашение</span>
+    <p class="store-auth-ref-who">Вас пригласил <strong class="store-auth-ref-name">{{ referrer.get_full_name|default:referrer.email }}</strong></p>
+    <p class="store-auth-ref-note">После регистрации вы будете связаны с пригласившим.</p>
+    {% else %}
+    <span class="store-auth-ref-label">Код приглашения</span>
+    <p class="store-auth-ref-note">Код «{{ ref_code }}» не найден. Можете зарегистрироваться как обычно.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'users:register' %}{% if ref_code %}?ref={{ ref_code }}{% endif %}" class="store-auth-form">
+    {% csrf_token %}
+    {% if ref_code %}<input type="hidden" name="ref_uuid" value="{{ ref_code }}">{% endif %}
+    <div class="store-auth-field">
+      <label for="id_email">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% if form.email.errors %}<span class="store-auth-error">{{ form.email.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label for="id_password1">{{ form.password1.label }}</label>
+      {{ form.password1 }}
+      {% if form.password1.errors %}<span class="store-auth-error">{{ form.password1.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label for="id_password2">{{ form.password2.label }}</label>
+      {{ form.password2 }}
+      {% if form.password2.errors %}<span class="store-auth-error">{{ form.password2.errors.0 }}</span>{% endif %}
+    </div>
+    <button type="submit" class="store-auth-submit">Зарегистрироваться</button>
+  </form>
+
+  <p class="store-auth-footer">
+    Уже есть аккаунт? <a href="{% url 'users:login' %}">Войти</a>
+  </p>
+</div>
+</div>
+{% endblock %}

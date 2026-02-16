@@ -1,0 +1,63 @@
+<div class="store-quickview" data-product-slug="{{ product.slug }}" data-product-id="{{ product.pk }}">
+  <div class="store-quickview-gallery">
+    {% if product.images_list %}
+    {% with first_img=product.images_list.0 %}
+    <img src="{{ first_img.file.url }}" alt="{{ product.name }}">
+    {% endwith %}
+    {% else %}
+    <div class="store-quickview-placeholder">📦</div>
+    {% endif %}
+  </div>
+  <div class="store-quickview-body">
+    <a href="{% url 'catalog:product_detail' product.slug %}" class="store-quickview-title">{{ product.name }}</a>
+    <p class="store-quickview-price" id="qv-price">
+      {% if product.default_variant %}{{ product.default_variant.price }} ₽{% else %}—{% endif %}
+    </p>
+
+    <form class="store-quickview-form" data-cart-add-url="{% url 'catalog:cart_add' %}">
+      {% csrf_token %}
+      <input type="hidden" name="source" value="catalog">
+      {% if product.variants_list|length > 1 %}
+        {% if product.variants_by_attr %}
+        <div class="store-quickview-variants" id="qv-attrs" data-variants='{{ product.variants_json }}'>
+          {% for attr in product.variants_by_attr %}
+          <div class="store-quickview-attr">
+            <label class="store-quickview-attr-label">{{ attr.name }}:</label>
+            <div class="store-variant-options">
+              {% for opt in attr.values %}
+              <label class="store-variant-opt {% if opt.is_default %}selected{% endif %} {% if not opt.has_stock %}store-variant-out-of-stock{% endif %}" data-attr="{{ attr.name }}" data-value="{{ opt.value }}" data-ids="{{ opt.variant_ids }}" data-has-stock="{{ opt.has_stock|yesno:'1,0' }}">
+                <input type="radio" name="attr_{{ attr.name }}" value="{{ opt.value }}" {% if opt.is_default %}checked{% endif %} {% if not opt.has_stock %}disabled{% endif %}>
+                {{ opt.value }}{% if not opt.has_stock %} (нет){% endif %}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="variant_id" id="qv-variant-id" value="{{ product.default_variant.pk }}">
+        {% else %}
+        <div class="store-quickview-variants" id="qv-flat">
+          <label>Вариант</label>
+          <div class="store-variant-options">
+            {% for v in product.variants_list %}
+            <label class="store-variant-opt {% if product.default_variant.pk == v.pk %}selected{% endif %} {% if v.stock < 1 %}store-variant-out-of-stock{% endif %}" data-price="{{ v.price }}">
+              <input type="radio" name="variant_id" value="{{ v.pk }}" {% if product.default_variant.pk == v.pk %}checked{% endif %} {% if v.stock < 1 %}disabled{% endif %}>
+              {{ v }}{% if v.stock < 1 %} (нет){% endif %}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% elif product.default_variant %}
+      <input type="hidden" name="variant_id" value="{{ product.default_variant.pk }}">
+      {% endif %}
+
+      {% if product.variants_list or product.default_variant %}
+      <button type="submit" class="store-quickview-add">В корзину</button>
+      {% else %}
+      <p class="store-quickview-no-stock">Нет в наличии.</p>
+      {% endif %}
+    </form>
+    <a href="{% url 'catalog:product_detail' product.slug %}" class="store-quickview-link">Подробнее о товаре →</a>
+  </div>
+</div>

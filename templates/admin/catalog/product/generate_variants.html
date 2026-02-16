@@ -1,0 +1,97 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+    <div class="max-w-3xl">
+        <h1 class="text-xl font-semibold text-font-important-light dark:text-font-important-dark mb-2">
+            Генерация вариантов
+        </h1>
+        <p class="text-sm text-font-subtle-light dark:text-font-subtle-dark mb-6">
+            Товар: <strong>{{ product.name }}</strong>
+        </p>
+
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+
+            <div class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6">
+                <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark mb-4">
+                    Базовые значения
+                </h2>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.price.label }}
+                        </label>
+                        {{ form.price }}
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.stock.label }}
+                        </label>
+                        {{ form.stock }}
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.weight_g.label }}
+                        </label>
+                        {{ form.weight_g }}
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.length_mm.label }}
+                        </label>
+                        {{ form.length_mm }}
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.width_mm.label }}
+                        </label>
+                        {{ form.width_mm }}
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">
+                            {{ form.height_mm.label }}
+                        </label>
+                        {{ form.height_mm }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-default border border-base-200 dark:border-base-800 bg-white dark:bg-base-900 p-6">
+                <h2 class="text-base font-semibold text-font-important-light dark:text-font-important-dark mb-4">
+                    Характеристики
+                </h2>
+                {% if allowed_attrs_count == 0 %}
+                    <div class="text-sm text-font-subtle-light dark:text-font-subtle-dark">
+                        Для категории товара не назначены атрибуты. Зайди в карточку категории и привяжи нужные
+                        атрибуты (например, Цвет, Размер).
+                    </div>
+                {% endif %}
+                <div class="grid gap-6 md:grid-cols-2">
+                    {% for field in form %}
+                        {% if field.name|slice:":5" == "attr_" %}
+                            <div>
+                                <div class="text-sm font-semibold mb-2">{{ field.label }}</div>
+                                <div class="space-y-2">{{ field }}</div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="mt-4 text-red-500 text-sm">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-default">
+                    Сгенерировать
+                </button>
+                <a href="{% url 'admin:catalog_product_change' product.pk %}" class="px-4 py-2 rounded-default border border-base-200 dark:border-base-800">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

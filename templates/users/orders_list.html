@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Мои заказы — Hardcode Store{% endblock %}
+{% block body_class %}store-page-orders-list{% endblock %}
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet">
+  <h1 class="store-cabinet-title">Мои заказы</h1>
+  <p class="store-cabinet-welcome">Список всех заказов с фильтром по статусу.</p>
+
+  <form method="get" action="{% url 'users:orders_list' %}" class="store-cabinet-orders-filter">
+    <label for="id_status" class="store-cabinet-filter-label">Статус:</label>
+    <select name="status" id="id_status" class="store-cabinet-filter-select">
+      <option value="">Все</option>
+      <option value="new" {% if status_filter == 'new' %}selected{% endif %}>Новый</option>
+      <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Оплачен</option>
+      <option value="shipped" {% if status_filter == 'shipped' %}selected{% endif %}>Передан в доставку</option>
+      <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>Доставлен</option>
+      <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Отменён</option>
+    </select>
+    <button type="submit" class="store-cabinet-filter-btn">Показать</button>
+  </form>
+
+  {% if orders_page.object_list %}
+  <ul class="store-cabinet-orders">
+    {% for order in orders_page.object_list %}
+    <li class="store-cabinet-order">
+      <a href="{% url 'users:order_detail' order.pk %}" class="store-cabinet-order-link">
+        <span class="store-cabinet-order-id">Заказ #{{ order.number|default:order.pk }}</span>
+        <span class="store-cabinet-order-date">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+        <span class="store-cabinet-order-total">{{ order.total }} ₽</span>
+        <span class="store-cabinet-order-pv">{{ order.total_pv|default:0|floatformat:0 }} PV</span>
+        <span class="store-cabinet-order-status store-cabinet-order-status-{{ order.status }}">{{ order.get_status_display }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if orders_page.has_other_pages %}
+  <nav class="store-cabinet-pagination" aria-label="Страницы заказов">
+    {% if orders_page.has_previous %}
+    <a href="?page={{ orders_page.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="store-cabinet-pagination-link">Назад</a>
+    {% endif %}
+    <span class="store-cabinet-pagination-current">Страница {{ orders_page.number }} из {{ orders_page.paginator.num_pages }}</span>
+    {% if orders_page.has_next %}
+    <a href="?page={{ orders_page.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="store-cabinet-pagination-link">Вперёд</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+  {% else %}
+  <p class="store-cabinet-empty">Заказов нет.</p>
+  <a href="{% url 'catalog:product_list' %}" class="store-cabinet-cta">Перейти в каталог</a>
+  {% endif %}
+
+  <p class="store-cabinet-footer" style="margin-top: 24px;">
+    <a href="{% url 'users:cabinet' %}">В обзор</a>
+    ·
+    <a href="{% url 'catalog:product_list' %}">В каталог</a>
+  </p>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Адреса доставки{% endblock %}
+{% block body_class %}store-page-address-list{% endblock %}
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet">
+  <h1 class="store-cabinet-title">Адреса доставки</h1>
+  <p><a href="{% url 'users:address_add' %}" class="store-cabinet-cta">Добавить адрес</a></p>
+  {% if addresses %}
+  <ul class="store-address-list">
+    {% for addr in addresses %}
+    <li class="store-address-card">
+      <p>{{ addr.city }}{% if addr.postal_code %}, {{ addr.postal_code }}{% endif %}</p>
+      <p>{{ addr.address }}</p>
+      {% if addr.is_default %}<span class="store-address-default">По умолчанию</span>{% endif %}
+      <p>
+        {% if not addr.is_default %}
+        <form method="post" action="{% url 'users:address_set_default' addr.pk %}" style="display:inline;">{% csrf_token %}<button type="submit">По умолчанию</button></form>
+        {% endif %}
+        <a href="{% url 'users:address_edit' addr.pk %}">Изменить</a>
+        <form method="post" action="{% url 'users:address_delete' addr.pk %}" style="display:inline;">{% csrf_token %}<button type="submit">Удалить</button></form>
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="store-cabinet-empty">Нет сохранённых адресов.</p>
+  {% endif %}
+  <p class="store-cabinet-footer"><a href="{% url 'users:cabinet' %}">В кабинет</a></p>
+</div>
+</div>
+{% endblock %}

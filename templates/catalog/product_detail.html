@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ product.name }} — Hardcode Store{% endblock %}
+{% block body_class %}store-page-product{% endblock %}
+
+{% block content %}
+<div class="store-detail">
+    <div class="store-detail-gallery">
+        <button type="button" class="store-card-fav-btn {% if product.is_in_favorites %}store-card-fav-active{% endif %}" data-product-id="{{ product.pk }}" title="{% if product.is_in_favorites %}Убрать из избранного{% else %}В избранное{% endif %}" aria-label="Избранное">
+            <svg class="store-card-fav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button>
+        {% if product.is_new %}
+        <span class="store-card-new-badge">NEW</span>
+        {% endif %}
+        {% if product.images_list %}
+        <div class="store-detail-gallery-track" id="store-gallery-track" role="region" aria-label="Галерея товара">
+            <div class="store-detail-gallery-slides">
+                {% for img in product.images_list %}
+                <div class="store-detail-gallery-slide {% if forloop.first %}store-detail-gallery-slide-active{% endif %}" data-index="{{ forloop.counter0 }}">
+                    <img src="{{ img.file.url }}" alt="{{ product.name }} — фото {{ forloop.counter }}" {% if forloop.first %}loading="eager"{% else %}loading="lazy"{% endif %}>
+                </div>
+                {% endfor %}
+            </div>
+            {% if product.images_list|length > 1 %}
+            <div class="store-detail-gallery-dots" aria-label="Выбор фото">
+                {% for img in product.images_list %}
+                <button type="button" class="store-detail-gallery-dot {% if forloop.first %}store-detail-gallery-dot-active{% endif %}" data-index="{{ forloop.counter0 }}" aria-label="Фото {{ forloop.counter }}"></button>
+                {% endfor %}
+            </div>
+            <button type="button" class="store-detail-gallery-arrow store-detail-gallery-prev" aria-label="Предыдущее фото">&lsaquo;</button>
+            <button type="button" class="store-detail-gallery-arrow store-detail-gallery-next" aria-label="Следующее фото">&rsaquo;</button>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="store-detail-gallery-placeholder">📦</div>
+        {% endif %}
+    </div>
+    <div class="store-detail-info">
+        <h1>{{ product.name }}</h1>
+        {% if product.brand %}
+        <p style="color: var(--store-muted); font-size: 14px; margin-bottom: 8px;">{{ product.brand.name }}</p>
+        {% endif %}
+        <p class="store-detail-price" id="product-price">
+            {% if product.default_variant %}{{ product.default_variant.price }} ₽{% else %}—{% endif %}
+        </p>
+        {% if product.default_variant %}
+        <p class="store-detail-pv" id="product-pv">
+            {{ product.default_variant.pv|floatformat:0 }} PV
+        </p>
+        {% else %}
+        <p class="store-detail-pv" id="product-pv" style="display:none"></p>
+        {% endif %}
+
+        {% if product.description %}
+        <div class="store-detail-desc">{{ product.description|linebreaks }}</div>
+        {% endif %}
+
+        <form action="{% url 'catalog:cart_add' %}" method="post" id="product-form" data-variants='{{ product.variants_json|default:"{}" }}'>
+            {% csrf_token %}
+            <input type="hidden" name="source" value="detail">
+            {% if product.variants_list|length > 1 %}
+              {% if product.variants_by_attr %}
+              {# Выбор по атрибутам (Размер, Цвет) #}
+              <div class="store-variants" id="product-attrs" data-variants='{{ product.variants_json }}'>
+                {% for attr in product.variants_by_attr %}
+                <div class="store-attr-row">
+                  <label class="store-attr-label">{{ attr.name }}:</label>
+                  {% if attr.values|length > 6 %}
+                  <select class="store-attr-select" data-attr="{{ attr.name }}">
+                    {% for opt in attr.values %}
+                    <option value="{{ opt.value }}" data-ids="{{ opt.variant_ids }}" {% if opt.is_default %}selected{% endif %} {% if not opt.has_stock %}disabled{% endif %}>{{ opt.value }}{% if not opt.has_stock %} (нет в наличии){% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  {% else %}
+                  <div class="store-variant-options">
+                    {% for opt in attr.values %}
+                    <label class="store-variant-opt {% if opt.is_default %}selected{% endif %} {% if not opt.has_stock %}store-variant-out-of-stock{% endif %}" data-attr="{{ attr.name }}" data-value="{{ opt.value }}" data-ids="{{ opt.variant_ids }}" data-has-stock="{{ opt.has_stock|yesno:'1,0' }}">
+                      <input type="radio" name="attr_{{ attr.name }}" value="{{ opt.value }}" {% if opt.is_default %}checked{% endif %} {% if not opt.has_stock %}disabled{% endif %}>
+                      {{ opt.value }}{% if not opt.has_stock %} (нет в наличии){% endif %}
+                    </label>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+              <input type="hidden" name="variant_id" id="product-variant-id" value="{{ product.default_variant.pk }}">
+              {% else %}
+              {# Плоские пилюли #}
+              <div class="store-variants" id="product-flat-variants">
+                <label>Вариант</label>
+                <div class="store-variant-options">
+                  {% for v in product.variants_list %}
+                  <label class="store-variant-opt {% if product.default_variant.pk == v.pk %}selected{% endif %} {% if v.stock < 1 %}store-variant-out-of-stock{% endif %}" data-price="{{ v.price }}">
+                    <input type="radio" name="variant_id" value="{{ v.pk }}" {% if product.default_variant.pk == v.pk %}checked{% endif %} {% if v.stock < 1 %}disabled{% endif %}>
+                    {{ v }}{% if v.stock < 1 %} (нет в наличии){% endif %}
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+            {% elif product.default_variant %}
+            <input type="hidden" name="variant_id" value="{{ product.default_variant.pk }}">
+            {% endif %}
+
+            {% if product.variants_list or product.default_variant %}
+            {% with vcount=product.variants_list|length %}
+            <div id="product-add-block" class="store-detail-add-block" style="{% if product.initial_variant_cart_qty > 0 %}display:none{% endif %}">
+                <label class="store-detail-qty-label">Количество</label>
+                <div class="store-detail-add-row">
+                    <div class="store-qty" data-max="99">
+                        <div class="store-qty-controls">
+                            <button type="button" class="store-qty-btn store-qty-minus" aria-label="Уменьшить">−</button>
+                            <input type="number" name="qty" value="1" min="1" max="99" class="store-qty-input">
+                            <button type="button" class="store-qty-btn store-qty-plus" aria-label="Увеличить">+</button>
+                        </div>
+                    </div>
+                    <button type="button" id="product-add-btn" class="store-add-btn"><span>В корзину</span></button>
+                </div>
+            </div>
+            <div id="product-cart-row" class="store-detail-cart-row" data-product-id="{{ product.pk }}" data-has-variants="{% if vcount > 1 %}1{% else %}0{% endif %}" style="{% if product.initial_variant_cart_qty > 0 %}display:block{% else %}display:none{% endif %}">
+                <div class="store-detail-cart-row-inner">
+                    <span class="store-detail-cart-badge">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                        В корзине
+                    </span>
+                    <span class="store-detail-cart-variant" id="product-cart-variant-label">{{ product.default_variant_label|default:"" }}</span>
+                </div>
+                <div class="store-detail-cart-row-actions">
+                    <span class="store-detail-cart-qty-label">Кол-во:</span>
+                    <div class="store-detail-cart-controls">
+                        <button type="button" class="store-card-qty-btn" data-dir="-">−</button>
+                        <span class="store-card-qty-value" id="product-cart-qty-value">{{ product.initial_variant_cart_qty }}</span>
+                        <button type="button" class="store-card-qty-btn" data-dir="+">+</button>
+                    </div>
+                    <a href="{% url 'catalog:cart' %}" class="store-detail-cart-link">В корзину →</a>
+                </div>
+            </div>
+            {% endwith %}
+            {% else %}
+            <p style="color: var(--store-muted);">Нет в наличии.</p>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% if related_products %}
+<section class="store-related-section" aria-label="С этим покупают">
+    <h2 class="store-related-title">С этим покупают</h2>
+    <div class="store-grid store-related-grid">
+        {% for p in related_products %}
+        {% if p.slug %}
+        <article class="store-card" data-product-pk="{{ p.pk }}">
+            <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-img-link">
+                <div class="store-card-img">
+                    {% if p.main_image %}
+                    <img src="{{ p.main_image.file.url }}" alt="{{ p.name }}" loading="lazy">
+                    {% else %}
+                    <span class="store-card-placeholder">📦</span>
+                    {% endif %}
+                </div>
+            </a>
+            <div class="store-card-body">
+                <div class="store-card-info">
+                    <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-title">{{ p.name }}</a>
+                    <p class="store-card-price">{% if p.default_variant %}{{ p.default_variant.price|floatformat:0 }} ₽{% else %}—{% endif %}</p>
+                </div>
+                {% if p.default_variant %}
+                <div class="store-card-actions" data-variant-id="{{ p.default_variant.pk }}" data-product-id="{{ p.pk }}" data-has-variants="{% if p.variants_list|length > 1 %}1{% else %}0{% endif %}">
+                    {% if p.cart_qty > 0 %}
+                    <div class="store-card-qty-controls">
+                        <button type="button" class="store-card-qty-btn" data-dir="-">−</button>
+                        <span class="store-card-qty-value">{{ p.cart_qty }}</span>
+                        <button type="button" class="store-card-qty-btn" data-dir="+">+</button>
+                    </div>
+                    {% else %}
+                    <button type="button" class="store-card-add-btn" title="В корзину" aria-label="В корзину">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </article>
+        {% endif %}
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if recent_products %}
+<section class="store-recent-section" aria-label="Недавно просмотренные">
+    <h2 class="store-recent-title">Вы смотрели</h2>
+    <div class="store-grid store-recent-grid">
+        {% for p in recent_products %}
+        {% if p.slug %}
+        <article class="store-card">
+            <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-img-link">
+                <div class="store-card-img">
+                    {% if p.main_image %}
+                    <img src="{{ p.main_image.file.url }}" alt="{{ p.name }}" loading="lazy">
+                    {% else %}
+                    <span class="store-card-placeholder">📦</span>
+                    {% endif %}
+                </div>
+            </a>
+            <div class="store-card-body">
+                <div class="store-card-info">
+                    <a href="{% url 'catalog:product_detail' p.slug %}" class="store-card-title">{{ p.name }}</a>
+                    <p class="store-card-price">
+                        <span class="store-card-price-value">{% if p.default_variant %}{{ p.default_variant.price|floatformat:2 }} ₽{% else %}—{% endif %}</span>
+                        {% if p.default_variant %}
+                        <span class="store-card-price-right">
+                            <span class="store-card-price-sep">|</span>
+                            <span class="store-card-pv-inline">{{ p.default_variant.pv|floatformat:1 }} PV</span>
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </article>
+        {% endif %}
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if product.variants_list or product.default_variant %}
+<div class="store-detail-sticky-bar" id="store-detail-sticky-bar" style="display:none" aria-hidden="true">
+    <span class="store-detail-sticky-price" id="product-sticky-price">{% if product.default_variant %}{{ product.default_variant.price }} ₽{% else %}—{% endif %}</span>
+    <button type="submit" form="product-form" class="store-detail-sticky-btn">В корзину</button>
+</div>
+{% endif %}
+
+<script>
+// Галерея товара — свайп, точки, стрелки
+(function() {
+  var track = document.getElementById('store-gallery-track');
+  if (!track) return;
+  var slides = track.querySelectorAll('.store-detail-gallery-slide');
+  var dots = track.querySelectorAll('.store-detail-gallery-dot');
+  var prevBtn = track.querySelector('.store-detail-gallery-prev');
+  var nextBtn = track.querySelector('.store-detail-gallery-next');
+  var total = slides.length;
+  if (total < 2) return;
+
+  var current = 0;
+  function show(i) {
+    current = ((i % total) + total) % total;
+    slides.forEach(function(s, idx) {
+      s.classList.toggle('store-detail-gallery-slide-active', idx === current);
+    });
+    dots.forEach(function(d, idx) {
+      d.classList.toggle('store-detail-gallery-dot-active', idx === current);
+    });
+  }
+  dots.forEach(function(dot) {
+    dot.addEventListener('click', function() {
+      var i = parseInt(dot.dataset.index, 10);
+      if (!isNaN(i)) show(i);
+    });
+  });
+  if (prevBtn) prevBtn.addEventListener('click', function() { show(current - 1); });
+  if (nextBtn) nextBtn.addEventListener('click', function() { show(current + 1); });
+
+  var touchStartX = 0;
+  var touchEndX = 0;
+  track.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+  track.addEventListener('touchend', function(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    var diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 50) {
+      show(diff > 0 ? current + 1 : current - 1);
+    }
+  }, { passive: true });
+})();
+(function() {
+  var attrsBlock = document.getElementById('product-attrs');
+  var variantInput = document.getElementById('product-variant-id');
+  var priceEl = document.getElementById('product-price');
+  var pvEl = document.getElementById('product-pv');
+  if (!attrsBlock || !variantInput) return;
+
+  var variantsData = {};
+  try { variantsData = JSON.parse(attrsBlock.dataset.variants || '{}'); } catch(e) {}
+
+  function getIds(el) {
+    return (el.dataset && el.dataset.ids || el.getAttribute('data-ids') || '').split(',').filter(Boolean);
+  }
+  var priceSticky = document.getElementById('product-sticky-price');
+  function updateVariant() {
+    var idsSets = [];
+    attrsBlock.querySelectorAll('.store-attr-row').forEach(function(row) {
+      var sel = row.querySelector('.store-attr-select');
+      var chosen = row.querySelector('.store-variant-opt.selected');
+      var pill = row.querySelector('.store-variant-opt');
+      var ids = sel ? getIds(sel.options[sel.selectedIndex]) : (chosen || pill ? getIds(chosen || pill) : []);
+      if (ids.length) idsSets.push(ids);
+    });
+    if (idsSets.length === 0) return;
+    var common = idsSets[0].filter(function(id) {
+      return idsSets.every(function(s) { return s.indexOf(id) !== -1; });
+    });
+    var vid = common[0];
+    variantInput.value = vid || '';
+    var priceStr = variantsData[vid] ? variantsData[vid].price + ' ₽' : '—';
+    priceEl.textContent = priceStr;
+    if (priceSticky) priceSticky.textContent = priceStr;
+    if (pvEl) {
+      var pvStr = variantsData[vid] && variantsData[vid].pv !== undefined ? String(variantsData[vid].pv) : '';
+      pvEl.textContent = pvStr ? (parseFloat(pvStr).toFixed(0) + ' PV') : '';
+      pvEl.style.display = pvStr ? '' : 'none';
+    }
+  }
+
+  attrsBlock.querySelectorAll('.store-attr-select').forEach(function(sel) {
+    sel.addEventListener('change', updateVariant);
+  });
+  attrsBlock.querySelectorAll('.store-variant-opt').forEach(function(pill) {
+    pill.addEventListener('click', function(e) {
+      if (pill.dataset.hasStock === '0' || pill.querySelector('input').disabled) return;
+      var row = pill.closest('.store-attr-row');
+      row.querySelectorAll('.store-variant-opt').forEach(function(p) { p.classList.remove('selected'); });
+      pill.classList.add('selected');
+      pill.querySelector('input').checked = true;
+      updateVariant();
+    });
+  });
+  var flatBlock = document.getElementById('product-flat-variants');
+  if (flatBlock && priceEl) {
+    flatBlock.querySelectorAll('.store-variant-opt').forEach(function(el) {
+      el.addEventListener('click', function() {
+        flatBlock.querySelectorAll('.store-variant-opt').forEach(function(o) { o.classList.remove('selected'); });
+        el.classList.add('selected');
+        el.querySelector('input').checked = true;
+        priceEl.textContent = (el.dataset.price || '') + ' ₽';
+      });
+    });
+  }
+})();
+
+// Добавить в корзину — AJAX, после добавления показываем +/- как в каталоге
+(function() {
+  var form = document.getElementById('product-form');
+  var addBlock = document.getElementById('product-add-block');
+  var cartRow = document.getElementById('product-cart-row');
+  var addBtn = document.getElementById('product-add-btn');
+  var variantInput = document.getElementById('product-variant-id');
+  var variantLabelEl = document.getElementById('product-cart-variant-label');
+  var qtyValueEl = document.getElementById('product-cart-qty-value');
+  if (!form || !addBlock || !cartRow || !addBtn) return;
+
+  var variantsData = {};
+  try { variantsData = JSON.parse(form.dataset.variants || '{}'); } catch(e) {}
+  var csrf = form.querySelector('[name=csrfmiddlewaretoken]');
+  var csrfToken = csrf ? csrf.value : '';
+  var productId = parseInt(cartRow.dataset.productId, 10);
+  var hasVariants = cartRow.dataset.hasVariants === '1';
+
+  function getVariantId() {
+    if (variantInput) return variantInput.value || '';
+    var flat = document.getElementById('product-flat-variants');
+    if (flat) {
+      var r = flat.querySelector('input[name=variant_id]:checked');
+      return r ? r.value : '';
+    }
+    var hid = form.querySelector('input[name=variant_id]');
+    return hid ? hid.value : '';
+  }
+
+  function updateUI() {
+    var vid = getVariantId();
+    var info = vid ? variantsData[vid] : null;
+    var qty = info && info.cart_qty !== undefined ? info.cart_qty : 0;
+    if (qty > 0) {
+      addBlock.style.display = 'none';
+      cartRow.style.display = 'block';
+      cartRow.dataset.variantId = vid;
+      if (variantLabelEl) variantLabelEl.textContent = info ? (info.label || '') : '';
+      if (qtyValueEl) qtyValueEl.textContent = qty;
+    } else {
+      addBlock.style.display = '';
+      cartRow.style.display = 'none';
+    }
+  }
+
+  function addToCart(cb, qtyOverride) {
+    var vid = getVariantId();
+    if (!vid) return;
+    var qty = qtyOverride !== undefined ? qtyOverride : (function() {
+      var qtyInp = form.querySelector('.store-qty-input');
+      return qtyInp ? (parseInt(qtyInp.value, 10) || 1) : 1;
+    })();
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', vid);
+    fd.append('qty', String(qty));
+    fd.append('source', 'detail');
+    fetch('{% url "catalog:cart_add" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok && vid && variantsData[vid]) {
+          variantsData[vid].cart_qty = data.variant_qty !== undefined ? data.variant_qty : (variantsData[vid].cart_qty || 0) + qty;
+        }
+        if (cb) cb(data);
+      })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  function setCartQty(vid, qty, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('variant_id', vid);
+    fd.append('product_id', String(productId));
+    fd.append('qty', String(qty));
+    fetch('{% url "catalog:cart_set" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok && vid && variantsData[vid] !== undefined) {
+          variantsData[vid].cart_qty = data.qty !== undefined ? data.qty : qty;
+        }
+        if (cb) cb(data);
+      })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  function updateCartBadge(count) {
+    var badge = document.querySelector('.store-cart-badge');
+    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    addToCart(function(data) {
+      if (data.ok) {
+        updateUI();
+        if (window.triggerCartPulse) window.triggerCartPulse();
+        updateCartBadge(data.count);
+      }
+    });
+    return false;
+  });
+
+  addBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  });
+
+  function removeLastFromCart(vid, cb) {
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrfToken);
+    fd.append('product_id', String(productId));
+    fd.append('variant_id', String(vid));
+    fetch('{% url "catalog:cart_remove_last" %}', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok && vid && variantsData[vid] !== undefined) {
+          variantsData[vid].cart_qty = data.variant_qty !== undefined ? data.variant_qty : Math.max(0, (variantsData[vid].cart_qty || 1) - 1);
+        }
+        if (cb) cb(data);
+      })
+      .catch(function() { if (cb) cb({ ok: false }); });
+  }
+
+  cartRow.querySelectorAll('.store-card-qty-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var vid = cartRow.dataset.variantId || getVariantId();
+      if (!vid) return;
+      var dir = btn.dataset.dir;
+      if (dir === '+') {
+        addToCart(function(data) {
+          if (data.ok) {
+            updateUI();
+            if (window.triggerCartPulse) window.triggerCartPulse();
+            updateCartBadge(data.count);
+          }
+        }, 1);
+      } else {
+        if (hasVariants) {
+          removeLastFromCart(vid, function(data) {
+            if (data.ok) {
+              updateUI();
+              updateCartBadge(data.count);
+            }
+          });
+        } else {
+          var cur = parseInt(qtyValueEl.textContent, 10) || 0;
+          var newQty = Math.max(0, cur - 1);
+          setCartQty(vid, newQty, function(data) {
+            if (data.ok) {
+              updateUI();
+              updateCartBadge(data.count);
+            }
+          });
+        }
+      }
+    });
+  });
+
+  function onVariantChange() {
+    var vid = getVariantId();
+    if (vid && variantsData[vid]) {
+      updateUI();
+    }
+  }
+  if (variantInput) variantInput.addEventListener('change', onVariantChange);
+  document.querySelectorAll('#product-flat-variants input[name=variant_id]').forEach(function(r) {
+    r.addEventListener('change', onVariantChange);
+  });
+  var attrsBlock = document.getElementById('product-attrs');
+  if (attrsBlock) {
+    attrsBlock.addEventListener('click', function() {
+      setTimeout(onVariantChange, 0);
+    });
+    attrsBlock.querySelectorAll('select').forEach(function(s) {
+      s.addEventListener('change', function() { setTimeout(onVariantChange, 0); });
+    });
+  }
+  updateUI();
+})();
+
+// Количество на карточке товара
+(function() {
+  function initQty() {
+    var qtyWrap = document.querySelector('.store-qty');
+    if (!qtyWrap) return;
+    var inp = qtyWrap.querySelector('.store-qty-input');
+    var minusBtn = qtyWrap.querySelector('.store-qty-minus');
+    var plusBtn = qtyWrap.querySelector('.store-qty-plus');
+    var maxVal = parseInt(qtyWrap.getAttribute('data-max') || '99', 10) || 99;
+    if (!inp || !minusBtn || !plusBtn) return;
+    function updateBtns() {
+      var v = parseInt(inp.value, 10) || 1;
+      minusBtn.disabled = v <= 1;
+      plusBtn.disabled = v >= maxVal;
+    }
+    function setVal(v) {
+      v = Math.max(1, Math.min(maxVal, v));
+      inp.value = String(v);
+      inp.setAttribute('value', String(v));
+      updateBtns();
+    }
+    minusBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      setVal((parseInt(inp.value, 10) || 1) - 1);
+    });
+    plusBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      setVal((parseInt(inp.value, 10) || 1) + 1);
+    });
+    inp.addEventListener('change', function() {
+      setVal(parseInt(inp.value, 10) || 1);
+    });
+    inp.addEventListener('input', function() {
+      var v = parseInt(inp.value, 10);
+      if (!isNaN(v)) updateBtns();
+    });
+    updateBtns();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQty);
+  } else {
+    initQty();
+  }
+})();
+// Sticky add-to-cart bar (mobile) — показывать, когда форма вне зоны видимости
+(function() {
+  var bar = document.getElementById('store-detail-sticky-bar');
+  var form = document.getElementById('product-form');
+  var priceSticky = document.getElementById('product-sticky-price');
+  var priceMain = document.getElementById('product-price');
+  if (!bar || !form) return;
+  function checkMobile() {
+    return window.innerWidth <= 640;
+  }
+  var observer = new IntersectionObserver(function(entries) {
+    if (!checkMobile()) { bar.style.display = 'none'; bar.setAttribute('aria-hidden','true'); return; }
+    var visible = entries[0].isIntersecting;
+    bar.style.display = visible ? 'none' : 'flex';
+    bar.setAttribute('aria-hidden', visible ? 'true' : 'false');
+  }, { threshold: 0.1, rootMargin: '0px 0px 80px 0px' });
+  observer.observe(form);
+  window.addEventListener('resize', function() {
+    if (!checkMobile()) { bar.style.display = 'none'; bar.setAttribute('aria-hidden','true'); }
+  });
+  if (priceSticky && priceMain) {
+    var flatBlock = document.getElementById('product-flat-variants');
+    if (flatBlock) {
+      flatBlock.querySelectorAll('.store-variant-opt').forEach(function(el) {
+        el.addEventListener('click', function() {
+          if (el.dataset.price) priceSticky.textContent = el.dataset.price + ' ₽';
+        });
+      });
+    }
+  }
+})();
+// Избранное на карточке товара
+(function() {
+  var btn = document.querySelector('.store-detail-gallery .store-card-fav-btn');
+  if (!btn) return;
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]');
+  var token = csrf ? csrf.value : '';
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    btn.classList.add('store-fav-shimmer');
+    setTimeout(function() { btn.classList.remove('store-fav-shimmer'); }, 300);
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', token);
+    fetch('{% url "catalog:favorites_toggle" 1 %}'.replace(/\/1\/$/, '/' + btn.dataset.productId + '/'), {
+      method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin'
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        btn.classList.toggle('store-card-fav-active', data.added);
+        btn.title = data.added ? 'Убрать из избранного' : 'В избранное';
+        var favBadge = document.querySelector('.store-favorites-badge');
+        if (favBadge) { favBadge.textContent = data.count; favBadge.style.display = data.count > 0 ? '' : 'none'; }
+      }
+    }).catch(function() {});
+  });
+})();
+</script>
+{% endblock %}

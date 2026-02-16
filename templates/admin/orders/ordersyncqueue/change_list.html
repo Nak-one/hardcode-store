@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+{{ block.super }}
+{% endblock %}
+
+{% block filters %}
+{{ block.super }}
+<a href="{% url 'admin:orders_ordersyncqueue_export_excel' %}" class="inline-flex items-center gap-2 rounded-default border border-green-600 bg-green-600 px-3 py-2 text-sm font-medium text-white shadow-xs transition hover:bg-green-700 dark:border-green-500 dark:bg-green-600 dark:hover:bg-green-700" title="Скачать не выгруженные записи в Excel">
+    <span class="material-symbols-outlined md-18">download</span>
+    <span>Выгрузить в Excel</span>
+</a>
+{% endblock %}

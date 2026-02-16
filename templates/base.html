@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hardcode Store{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/store.css' %}?v=276">
+</head>
+<body class="store-page {% block body_class %}{% endblock %}">
+<header class="store-header" id="store-header">
+    <div class="store-header-inner">
+        <a href="{% url 'catalog:product_list' %}" class="store-logo">Hardcode Store</a>
+        <form class="store-search" action="{% url 'catalog:product_list' %}" method="get" role="search">
+            <input type="search" name="q" placeholder="Поиск..." value="{{ request.GET.q|default:'' }}" aria-label="Поиск">
+        </form>
+        <div class="store-header-actions">
+            <a href="{% url 'catalog:favorites' %}" class="store-icon-btn store-btn-wishlist" title="Избранное" aria-label="Избранное">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <span class="store-favorites-badge" {% if not favorites_count %}style="display:none"{% endif %}>{{ favorites_count|default:0 }}</span>
+            </a>
+            <a href="{% url 'catalog:cart' %}" class="store-icon-btn store-cart-link" title="Корзина" aria-label="Корзина">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span class="store-cart-badge" {% if not cart_count %}style="display:none"{% endif %}>{{ cart_count|default:0 }}</span>
+            </a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'users:cabinet' %}" class="store-header-link store-header-account" title="Личный кабинет">Личный кабинет</a>
+            <a href="{% url 'users:logout' %}" class="store-header-link store-header-logout" title="Выйти">Выйти</a>
+            {% else %}
+            <a href="{% url 'users:login' %}?next={{ request.get_full_path|urlencode }}" class="store-header-link store-header-login" title="Войти">Войти</a>
+            <a href="{% url 'users:register' %}{% if request.GET.ref %}?ref={{ request.GET.ref }}{% endif %}" class="store-header-link store-header-register" title="Регистрация">Регистрация</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
+
+<div class="store-page-body">
+{% if not hide_hero_nav %}
+<a href="{% url 'catalog:product_list' %}" class="store-hero">
+    <img src="{% static 'images/store-banner.png' %}" alt="" class="store-hero-img">
+</a>
+<div class="store-cats">
+    <div class="store-cats-inner">
+        <a href="{% url 'catalog:product_list' %}" class="store-cat-pill {% if not current_category and not filter_new %}active{% endif %}" data-filter="all">Каталог</a>
+        <a href="{% url 'catalog:product_list' %}?new=1" class="store-cat-pill {% if filter_new %}active{% endif %}" data-filter="new">NEW</a>
+        {% for cat in categories %}
+        <a href="{% url 'catalog:product_list_category' cat.slug %}" class="store-cat-pill {% if current_category and current_category.slug == cat.slug %}active{% endif %}" data-filter="{{ cat.slug }}">{{ cat.name }}<span class="store-cat-pill-count"> ({{ cat.product_count }})</span></a>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="store-hero-spacer"></div>
+{% endif %}
+
+<main class="store-main store-container">
+    {% block content %}{% endblock %}
+</main>
+</div>
+
+<footer class="store-footer">
+    <div class="store-footer-inner">
+        <nav class="store-footer-nav" aria-label="Подвал">
+            <a href="{% url 'catalog:product_list' %}">Каталог</a>
+            <a href="{% url 'catalog:cart' %}">Корзина</a>
+            <a href="{% url 'catalog:favorites' %}">Избранное</a>
+            <a href="{% url 'catalog:policy' %}">Политика конфиденциальности</a>
+        </nav>
+        <p class="store-footer-copy">© Hardcode Store — курс «Создать интернет-магазин»</p>
+    </div>
+</footer>
+
+{% block scripts %}{% endblock %}
+<script>
+(function() {
+  var h = document.getElementById('store-header');
+  if (!h) return;
+  function onScroll() {
+    h.classList.toggle('scrolled', window.scrollY > 20);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Вход — Hardcode Store{% endblock %}
+{% block body_class %}store-page-login{% endblock %}
+
+{% block content %}
+<div class="store-auth-wrap">
+<div class="store-auth">
+  <h1 class="store-auth-title">Вход в аккаунт</h1>
+  <p class="store-auth-subtitle">Введите email и пароль</p>
+
+  <form method="post" action="{% url 'users:login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="store-auth-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="store-auth-field">
+      <label for="id_email">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% if form.email.errors %}<span class="store-auth-error">{{ form.email.errors.0 }}</span>{% endif %}
+    </div>
+    <div class="store-auth-field">
+      <label for="id_password">{{ form.password.label }}</label>
+      {{ form.password }}
+      {% if form.password.errors %}<span class="store-auth-error">{{ form.password.errors.0 }}</span>{% endif %}
+    </div>
+    {% if form.non_field_errors %}
+    <div class="store-auth-error">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+    <button type="submit" class="store-auth-submit">Войти</button>
+  </form>
+
+  <p class="store-auth-footer">
+    Нет аккаунта? <a href="{% url 'users:register' %}">Регистрация</a>
+  </p>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% if node.user %}
+<div class="store-business-tree-node">
+  <span class="store-business-tree-user">{{ node.user.email|default:node.user.uuid }}</span>
+  {% if node.children %}
+  <div class="store-business-tree-children">
+    {% for child in node.children %}
+    {% include "users/_referral_tree_node.html" with node=child %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}

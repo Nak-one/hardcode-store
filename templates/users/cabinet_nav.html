@@ -1,0 +1,10 @@
+{% load static %}
+<aside class="store-cabinet-sidebar" aria-label="Разделы кабинета">
+  <nav class="store-cabinet-nav">
+    <a href="{% url 'users:cabinet' %}" class="store-cabinet-nav-link {% if request.resolver_match.url_name == 'cabinet' %}active{% endif %}">Обзор</a>
+    <a href="{% url 'users:profile' %}" class="store-cabinet-nav-link {% if request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'password_change' %}active{% endif %}">Профиль</a>
+    <a href="{% url 'users:orders_list' %}" class="store-cabinet-nav-link {% if request.resolver_match.url_name == 'orders_list' or request.resolver_match.url_name == 'order_detail' %}active{% endif %}">Заказы</a>
+    <a href="{% url 'users:address_list' %}" class="store-cabinet-nav-link {% if request.resolver_match.url_name == 'address_list' or request.resolver_match.url_name == 'address_add' or request.resolver_match.url_name == 'address_edit' %}active{% endif %}">Адреса</a>
+    <a href="{% url 'users:business_join' %}" class="store-cabinet-nav-link {% if request.resolver_match.url_name == 'business_join' %}active{% endif %}">Мой бизнес</a>
+  </nav>
+</aside>

@@ -1,0 +1,58 @@
+{% load static %}
+<div class="store-cart-item" data-variant-id="{{ item.variant.pk }}" data-cart-key="{{ item.cart_key }}">
+    <div class="store-cart-item-img">
+        {% if item.image %}
+        <img src="{{ item.image.file.url }}" alt="{{ item.variant.product.name }}">
+        {% else %}
+        <div class="store-cart-item-placeholder">📦</div>
+        {% endif %}
+    </div>
+    <div class="store-cart-item-info">
+        <div class="store-cart-item-title">{{ item.variant.product.name }}</div>
+        {% if item.has_variants %}
+        {% if item.needs_selection %}
+        <form action="{% url 'catalog:cart_replace' %}" method="post" class="store-cart-variant-form">
+            {% csrf_token %}
+            <input type="hidden" name="old_key" value="{{ item.cart_key }}">
+            <div class="store-cart-variant-select">
+                {% if item.variants_flat %}
+                <select name="new_variant_id" class="store-cart-variant-select-single" required>
+                    {% for v in item.variants_flat %}
+                    <option value="{{ v.pk }}" {% if forloop.first %}selected{% endif %}>{{ v.label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="store-cart-variant-save">Применить</button>
+                {% else %}
+                <span class="store-cart-no-stock">Нет в наличии</span>
+                {% endif %}
+            </div>
+        </form>
+        {% else %}
+        <div class="store-cart-variant-display">
+            {% for av in item.variant.attribute_values.all %}
+            <span class="store-cart-variant-tag">{{ av.attribute.name }}: {{ av.value }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+        <div class="store-cart-item-price">{{ item.variant.price }} ₽ × {{ item.qty }} = {{ item.line_total }} ₽</div>
+    </div>
+    <div class="store-cart-item-actions">
+        {% if not item.has_variants %}
+        <form action="{% url 'catalog:cart_set' %}" method="post" class="store-cart-qty-form">
+            {% csrf_token %}
+            <input type="hidden" name="cart_key" value="{{ item.cart_key }}">
+            <div class="store-cart-qty-controls">
+                <button type="submit" name="qty" value="{{ item.qty|add:'-1' }}" class="store-cart-qty-btn" {% if item.qty <= 1 %}disabled{% endif %}>−</button>
+                <span class="store-cart-qty-value">{{ item.qty }}</span>
+                <button type="submit" name="qty" value="{{ item.qty|add:'1' }}" class="store-cart-qty-btn">+</button>
+            </div>
+        </form>
+        {% endif %}
+        <form action="{% url 'catalog:cart_remove' %}" method="post" class="store-cart-remove-form">
+            {% csrf_token %}
+            <input type="hidden" name="cart_key" value="{{ item.cart_key }}">
+            <button type="submit" class="store-cart-item-remove">Удалить</button>
+        </form>
+    </div>
+</div>

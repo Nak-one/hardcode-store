@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Мой бизнес — Hardcode Store{% endblock %}
+{% block body_class %}store-page-business{% endblock %}
+
+{% block content %}
+<div class="store-cabinet-wrap">
+  {% include "users/cabinet_nav.html" %}
+<div class="store-cabinet store-cabinet-business">
+  <h1 class="store-cabinet-title">Мой бизнес</h1>
+
+  {% if already_business %}
+  <nav class="store-business-tabs" role="tablist">
+    <button type="button" class="store-business-tab active" data-tab="overview" role="tab" aria-selected="true">Обзор</button>
+    <button type="button" class="store-business-tab" data-tab="accounts" role="tab" aria-selected="false">Счета</button>
+    <button type="button" class="store-business-tab" data-tab="transfers" role="tab" aria-selected="false">Переводы</button>
+    <button type="button" class="store-business-tab" data-tab="withdrawals" role="tab" aria-selected="false">Вывод средств</button>
+    <button type="button" class="store-business-tab" data-tab="referral-tree" role="tab" aria-selected="false">Дерево пользователей</button>
+  </nav>
+
+  <div class="store-business-panel active" id="panel-overview" data-tab="overview" role="tabpanel">
+    <section class="store-cabinet-section">
+      {% if user.referred_by %}
+      <h2 class="store-cabinet-section-title">Ваш наставник</h2>
+      <p class="store-referral-code">{{ user.referred_by.get_full_name|default:user.referred_by.email }} (UUID: {{ user.referred_by.uuid }})</p>
+      {% endif %}
+      <h2 class="store-cabinet-section-title" style="margin-top: 20px;">Ваша реферальная ссылка</h2>
+      <div class="store-referral-link-wrap">
+        <input type="text" id="ref-link" class="store-referral-link-input" value="{{ ref_link }}" readonly>
+        <button type="button" class="store-referral-copy-btn" data-target="ref-link" aria-label="Копировать ссылку">Копировать</button>
+      </div>
+      <p class="store-cabinet-empty" style="margin-top: 16px;">Отключить статус бизнес-пользователя самостоятельно нельзя. Обратитесь в поддержку при необходимости.</p>
+    </section>
+  </div>
+
+  <div class="store-business-panel" id="panel-accounts" data-tab="accounts" role="tabpanel" hidden>
+    <section class="store-cabinet-section">
+      <h2 class="store-cabinet-section-title">Счета</h2>
+      {% for acc in accounts %}
+      <div class="store-business-account-card">
+        <div class="store-business-account-name">{{ acc.name }}</div>
+        <div class="store-business-account-balance">{{ acc.balance }} {{ acc.currency }}</div>
+        {% if acc.details %}
+        <div class="store-business-account-details">
+          {% for d in acc.details %}<div>{{ d }}</div>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="store-cabinet-empty">Нет счетов.</p>
+      {% endfor %}
+    </section>
+  </div>
+
+  <div class="store-business-panel" id="panel-transfers" data-tab="transfers" role="tabpanel" hidden>
+    <section class="store-cabinet-section">
+      <h2 class="store-cabinet-section-title">Перевод другому пользователю</h2>
+      <p class="store-cabinet-empty">Скоро.</p>
+      <h3 class="store-cabinet-section-title" style="margin-top: 24px;">История переводов</h3>
+      {% if transfers %}
+      <div class="store-business-table-wrap">
+        <table class="store-business-table">
+          <thead><tr><th>Дата</th><th>Получатель</th><th>Сумма</th><th>Статус</th></tr></thead>
+          <tbody>
+          {% for t in transfers %}
+          <tr><td>{{ t.date }}</td><td>{{ t.to_user }}</td><td>{{ t.amount }}</td><td>{{ t.status }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="store-cabinet-empty">История пуста.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="store-business-panel" id="panel-withdrawals" data-tab="withdrawals" role="tabpanel" hidden>
+    <section class="store-cabinet-section">
+      <h2 class="store-cabinet-section-title">Заявка на вывод средств</h2>
+      <p class="store-cabinet-empty">Скоро.</p>
+      <h3 class="store-cabinet-section-title" style="margin-top: 24px;">История заявок</h3>
+      {% if withdrawals %}
+      <div class="store-business-table-wrap">
+        <table class="store-business-table">
+          <thead><tr><th>Дата</th><th>Сумма</th><th>Статус</th></tr></thead>
+          <tbody>
+          {% for w in withdrawals %}
+          <tr><td>{{ w.date }}</td><td>{{ w.amount }}</td><td>{{ w.status }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="store-cabinet-empty">История пуста.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="store-business-panel" id="panel-referral-tree" data-tab="referral-tree" role="tabpanel" hidden>
+    <section class="store-cabinet-section">
+      <h2 class="store-cabinet-section-title">Дерево пользователей (рефералы)</h2>
+      {% if referral_tree and referral_tree.children %}
+      <div class="store-business-tree" id="referral-tree-root">
+        {% include "users/_referral_tree_node.html" with node=referral_tree %}
+      </div>
+      {% else %}
+      <p class="store-cabinet-empty">Пока нет приглашённых пользователей.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% else %}
+  <section class="store-cabinet-section">
+    <p class="store-cabinet-welcome">Чтобы вести бизнес с компанией, укажите ссылку пригласившего (наставника). Наставник должен быть бизнес-пользователем. После подключения вам будет доступна реферальная ссылка и запись наставника. Отключить статус самостоятельно нельзя.</p>
+    <form method="post" action="{% url 'users:business_join' %}" class="store-auth-form">
+      {% csrf_token %}
+      <div class="store-auth-field">
+        <label for="id_ref_link">Ссылка пригласившего или UUID наставника</label>
+        <input type="text" id="id_ref_link" name="ref_link" value="{{ ref_link_value }}" placeholder="https://...?ref=UUID или UUID" class="store-auth-input" required>
+      </div>
+      <label class="store-business-check-wrap">
+        <input type="checkbox" name="confirm" value="1" required>
+        <span>Я хочу вести бизнес с компанией и понимаю, что отключить это сам не смогу.</span>
+      </label>
+      <button type="submit" class="store-auth-submit">Подключить</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <p class="store-cabinet-footer">
+    <a href="{% url 'users:cabinet' %}">В кабинет</a>
+  </p>
+</div>
+</div>
+<script>
+(function() {
+  var btn = document.querySelector('.store-referral-copy-btn');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.getAttribute('data-target');
+      var el = document.getElementById(id);
+      if (el) {
+        el.select();
+        el.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          btn.textContent = 'Скопировано!';
+          setTimeout(function() { btn.textContent = 'Копировать'; }, 2000);
+        } catch (e) {}
+      }
+    });
+  }
+
+  var tabs = document.querySelectorAll('.store-business-tab');
+  var panels = document.querySelectorAll('.store-business-panel');
+  var activeTab = sessionStorage.getItem('business_tab') || 'overview';
+
+  function showTab(tabId) {
+    tabs.forEach(function(t) {
+      var isActive = t.getAttribute('data-tab') === tabId;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive);
+    });
+    panels.forEach(function(p) {
+      var isActive = p.getAttribute('data-tab') === tabId;
+      p.classList.toggle('active', isActive);
+      p.hidden = !isActive;
+    });
+    sessionStorage.setItem('business_tab', tabId);
+  }
+
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      showTab(t.getAttribute('data-tab'));
+    });
+  });
+
+  showTab(activeTab);
+})();
+</script>
+{% endblock %}
