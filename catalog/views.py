@@ -564,11 +564,12 @@ def checkout_view(request):
         messages.warning(request, "Укажите характеристики для всех товаров перед оформлением.")
         return redirect("catalog:cart")
 
-    # Самовывоз не показываем — оставляем курьер и при необходимости ПВЗ
+    # ТК: СДЭК, 5post, Почта России
     delivery_methods = list(
-        DeliveryMethod.objects.filter(is_active=True)
-        .exclude(delivery_type="pickup")
-        .order_by("sort_order", "name")
+        DeliveryMethod.objects.filter(
+            is_active=True,
+            code__in=["cdek_courier", "cdek_pvz", "fivepost_courier", "fivepost_pvz", "russianpost"],
+        ).order_by("sort_order", "name")
     )
 
     if request.method == "POST":
@@ -617,6 +618,11 @@ def _checkout_post(request, items, total, delivery_methods):
     delivery_method_id = request.POST.get("delivery_method")
     delivery_city = (request.POST.get("delivery_city") or "").strip()
     delivery_address = (request.POST.get("delivery_address") or "").strip()
+    cdek_city_code = request.POST.get("cdek_city_code")
+    cdek_pvz_code = (request.POST.get("cdek_pvz_code") or "").strip()
+    fivepost_pvz_id = (request.POST.get("fivepost_pvz_id") or "").strip()
+    russianpost_to_index = (request.POST.get("russianpost_to_index") or "").strip().replace(" ", "")
+    delivery_cost_raw = request.POST.get("delivery_cost")
     payment_type = request.POST.get("payment_type") or "cash"
     comment = (request.POST.get("comment") or "").strip()
 
@@ -632,9 +638,10 @@ def _checkout_post(request, items, total, delivery_methods):
 
     try:
         dm = (
-            DeliveryMethod.objects.filter(is_active=True)
-            .exclude(delivery_type="pickup")
-            .get(pk=delivery_method_id)
+            DeliveryMethod.objects.filter(
+                is_active=True,
+                code__in=["cdek_courier", "cdek_pvz", "fivepost_courier", "fivepost_pvz", "russianpost"],
+            ).get(pk=delivery_method_id)
         )
     except (DeliveryMethod.DoesNotExist, ValueError, TypeError):
         dm = None
@@ -644,8 +651,15 @@ def _checkout_post(request, items, total, delivery_methods):
     if dm:
         if not delivery_city:
             errors.append("Укажите город.")
+        if dm.delivery_type == "pvz" and dm.code.startswith("cdek_") and not cdek_pvz_code:
+            errors.append("Выберите пункт выдачи СДЭК.")
+        if dm.delivery_type == "pvz" and dm.code.startswith("fivepost_") and not fivepost_pvz_id:
+            errors.append("Выберите пункт выдачи 5post.")
+        if dm.code == "russianpost":
+            if len(russianpost_to_index) != 6 or not russianpost_to_index.isdigit():
+                errors.append("Укажите 6-значный индекс доставки (Почта России).")
         if not delivery_address:
-            errors.append("Укажите адрес доставки.")
+            errors.append("Укажите адрес доставки или выберите пункт выдачи.")
 
     if payment_type not in ("cash", "online"):
         payment_type = "cash"
@@ -691,6 +705,12 @@ def _checkout_post(request, items, total, delivery_methods):
                 qty = item["qty"]
                 total_pv += (getattr(v, "pv", 0) or 0) * qty
 
+            cdek_code = int(cdek_city_code) if cdek_city_code and str(cdek_city_code).isdigit() else None
+            try:
+                delivery_cost_val = Decimal(delivery_cost_raw) if delivery_cost_raw else None
+            except (TypeError, ValueError):
+                delivery_cost_val = None
+
             with db_transaction.atomic():
                 order = Order.objects.create(
                     user=request.user if request.user.is_authenticated else None,
@@ -700,6 +720,11 @@ def _checkout_post(request, items, total, delivery_methods):
                     delivery_method=dm,
                     delivery_city=delivery_city,
                     delivery_address=delivery_address,
+                    cdek_city_code=cdek_code,
+                    cdek_pvz_code=cdek_pvz_code or "",
+                    fivepost_pvz_id=fivepost_pvz_id or "",
+                    russianpost_to_index=russianpost_to_index[:6] if russianpost_to_index else "",
+                    delivery_cost=delivery_cost_val,
                     payment_type=payment_type,
                     total=total,
                     total_pv=total_pv,

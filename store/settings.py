@@ -105,6 +105,9 @@ DATABASES = {
 # Если задан — запросы без заголовка X-API-Key с этим значением получат 401
 ORDER_SYNC_API_KEY = os.environ.get('ORDER_SYNC_API_KEY', '').strip() or None
 
+# API ключ для эндпоинтов /api/user-sync/ и /api/users/<uuid>/
+USER_SYNC_API_KEY = os.environ.get('USER_SYNC_API_KEY', '').strip() or None
+
 # СДЭК API v2 (доставка): учётные данные запросить у integrator@cdek.ru
 CDEK_ACCOUNT = os.environ.get('CDEK_ACCOUNT', '').strip() or None
 CDEK_SECURE = os.environ.get('CDEK_SECURE', '').strip() or None
@@ -112,11 +115,39 @@ CDEK_TEST = os.environ.get('CDEK_TEST', 'False').lower() in ('true', '1', 'yes')
 CDEK_BASE_URL = os.environ.get('CDEK_BASE_URL', '').strip() or None  # пусто = авто (тест/прод)
 # Код города отправителя для калькулятора СДЭК (например Москва = 44)
 CDEK_SENDER_CITY_CODE = os.environ.get('CDEK_SENDER_CITY_CODE', '').strip() or None
+# Только локальный список городов (без API СДЭК) — при таймаутах API
+CDEK_CITIES_FALLBACK_ONLY = os.environ.get('CDEK_CITIES_FALLBACK_ONLY', 'True').lower() in ('true', '1', 'yes')
 if CDEK_SENDER_CITY_CODE is not None:
     try:
         CDEK_SENDER_CITY_CODE = int(CDEK_SENDER_CITY_CODE)
     except ValueError:
         CDEK_SENDER_CITY_CODE = None
+
+# 5post API (доставка X5): api-key → JWT, тариф по зонам, ПВЗ через /api/v1/pickuppoints/query
+FIVEPOST_API_KEY = os.environ.get('FIVEPOST_API_KEY', '').strip() or None
+FIVEPOST_API_URL = os.environ.get('FIVEPOST_API_URL', '').strip() or None  # пусто = авто (test/prod)
+FIVEPOST_TEST = os.environ.get('FIVEPOST_TEST', 'False').lower() in ('true', '1', 'yes')
+# Маппинг город → тарифная зона. Из .env: FIVEPOST_CITY_ZONE='{"Москва":1,"Санкт-Петербург":2,"__default__":1}'
+_FIVEPOST_ZONE_RAW = os.environ.get('FIVEPOST_CITY_ZONE', '').strip()
+FIVEPOST_CITY_ZONE = {}
+if _FIVEPOST_ZONE_RAW:
+    try:
+        import json as _json
+        FIVEPOST_CITY_ZONE = _json.loads(_FIVEPOST_ZONE_RAW)
+    except Exception:
+        pass
+
+# Почта России (tariff.pochta.ru): индекс отправителя для расчёта тарифа
+RUSSIANPOST_SENDER_INDEX = os.environ.get('RUSSIANPOST_SENDER_INDEX', '').strip() or None
+if RUSSIANPOST_SENDER_INDEX is not None:
+    try:
+        RUSSIANPOST_SENDER_INDEX = int(RUSSIANPOST_SENDER_INDEX)
+        if not (100000 <= RUSSIANPOST_SENDER_INDEX <= 999999):
+            RUSSIANPOST_SENDER_INDEX = None
+    except ValueError:
+        RUSSIANPOST_SENDER_INDEX = None
+RUSSIANPOST_OBJECT = int(os.environ.get('RUSSIANPOST_OBJECT', '4040'))  # 4040 = посылка с ОЦ и наложенным
+RUSSIANPOST_TARIFF_URL = os.environ.get('RUSSIANPOST_TARIFF_URL', '').strip() or None
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

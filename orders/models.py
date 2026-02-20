@@ -86,9 +86,13 @@ class Order(models.Model):
     )
     delivery_city = models.CharField("Город", max_length=200, blank=True)
     delivery_address = models.TextField("Адрес доставки / ПВЗ", blank=True)
-    # СДЭК: код города и ПВЗ для доставки в пункт выдачи; стоимость доставки
+    # СДЭК: код города и ПВЗ для доставки в пункт выдачи
     cdek_city_code = models.PositiveIntegerField("Код города СДЭК", null=True, blank=True)
     cdek_pvz_code = models.CharField("Код ПВЗ СДЭК", max_length=100, blank=True)
+    # 5post: UUID пункта выдачи (для доставки в постамат/ПВЗ)
+    fivepost_pvz_id = models.CharField("Код ПВЗ 5post (UUID)", max_length=64, blank=True)
+    # Почта России: индекс получателя (6 цифр) для доставки
+    russianpost_to_index = models.CharField("Индекс получателя (Почта России)", max_length=6, blank=True)
     delivery_cost = models.DecimalField(
         "Стоимость доставки",
         max_digits=12,

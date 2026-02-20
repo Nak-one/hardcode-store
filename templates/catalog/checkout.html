@@ -64,16 +64,22 @@
         </div>
       </div>
 
-      <div class="store-checkout-panel" data-panel="2">
-        <h2 class="store-checkout-panel-title">Способ доставки</h2>
+      <div class="store-checkout-panel" data-panel="2" data-cart-weight="{{ cart_weight_grams|default:1000 }}" data-cart-total="{{ total|floatformat:0 }}">
+        <h2 class="store-checkout-panel-title">2. Доставка</h2>
+        <p class="store-checkout-hint" style="margin-bottom:16px;">Выберите транспортную компанию и способ доставки</p>
         <div class="store-checkout-delivery">
           {% for dm in delivery_methods %}
           <label class="store-checkout-delivery-opt">
-            <input type="radio" name="delivery_method" value="{{ dm.pk }}" {% if forloop.first %}checked{% endif %} data-type="{{ dm.delivery_type }}">
+            <input type="radio" name="delivery_method" value="{{ dm.pk }}" {% if forloop.first %}checked{% endif %} data-type="{{ dm.delivery_type }}" data-code="{{ dm.code }}">
             <span>{{ dm.name }}</span>
           </label>
           {% endfor %}
           <div class="store-checkout-address" id="delivery-address-fields">
+            <input type="hidden" name="cdek_city_code" id="id_cdek_city_code" value="">
+            <input type="hidden" name="cdek_pvz_code" id="id_cdek_pvz_code" value="">
+            <input type="hidden" name="cdek_tariff_code" id="id_cdek_tariff_code" value="">
+            <input type="hidden" name="fivepost_pvz_id" id="id_fivepost_pvz_id" value="">
+            <input type="hidden" name="delivery_cost" id="id_delivery_cost" value="">
             {% if user_addresses %}
             <div class="store-checkout-field store-checkout-saved-addresses">
               <label for="id_saved_address">Сохранённый адрес</label>
@@ -86,15 +92,30 @@
             </div>
             {% endif %}
             <div class="store-checkout-field store-checkout-city-wrap">
-              <label for="id_delivery_city">Город</label>
-              <input type="text" id="id_delivery_city" name="delivery_city" value="{{ checkout_delivery_city|default:'' }}" placeholder="Начните вводить город" autocomplete="off">
+              <label for="id_delivery_city">Город получения</label>
+              <input type="text" id="id_delivery_city" name="delivery_city" value="{{ checkout_delivery_city|default:'' }}" placeholder="Начните вводить город (например: Новосиб)" autocomplete="off">
               <div class="store-checkout-city-suggest" id="city-suggest" role="listbox" aria-hidden="true"></div>
+              <div class="store-checkout-field" id="russianpost-index-wrap" style="display:none; margin-top:8px;">
+                <label for="id_russianpost_to_index">Индекс доставки (Почта России)</label>
+                <input type="text" id="id_russianpost_to_index" name="russianpost_to_index" value="" placeholder="190000" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="postal-code">
+              </div>
+              <div id="cdek-delivery-cost" class="store-checkout-field store-checkout-tariff-wrap" aria-live="polite" style="display:none; margin-top:12px;"></div>
             </div>
-            <div class="store-checkout-field">
+            <div class="store-checkout-field" id="pvz-select-wrap" style="display:none;">
+              <label for="id_pvz_select">Пункт выдачи</label>
+              <select id="id_pvz_select" class="store-checkout-saved-select store-checkout-pvz-select">
+              </select>
+            </div>
+            <div class="store-checkout-field" id="address-courier-wrap">
               <label for="id_delivery_address">Адрес доставки</label>
               <textarea id="id_delivery_address" name="delivery_address" rows="2" placeholder="Улица, дом, квартира">{{ checkout_delivery_address|default:'' }}</textarea>
             </div>
           </div>
+        </div>
+        <div class="store-checkout-total" id="delivery-step-total" style="display:none; margin-top:24px;">
+          <div class="store-checkout-total-cart">Товары: <span id="delivery-total-cart">0</span> ₽</div>
+          <div class="store-checkout-total-delivery">Доставка: <span id="delivery-total-cost">0</span> ₽</div>
+          <div class="store-checkout-total-sum">Итого: <span id="delivery-total-sum">0</span> ₽</div>
         </div>
       </div>
 
@@ -169,6 +190,7 @@
 
   function showStep(n) {
     currentStep = Math.max(1, Math.min(totalSteps, n));
+    if (currentStep === 2) fetchDeliveryCost();
     panels.forEach(function(p) {
       var num = parseInt(p.dataset.panel, 10);
       p.classList.toggle('store-checkout-panel-visible', num === currentStep);
@@ -189,10 +211,23 @@
       var checked = form.querySelector('input[name="delivery_method"]:checked');
       if (!checked) return false;
       var type = checked.dataset.type;
-      var addr = form.querySelector('#id_delivery_address').value.trim();
-      if (type === 'pickup') return !!addr;
       var city = form.querySelector('#id_delivery_city').value.trim();
-      return !!(city && addr);
+      var carrier = getCurrentCarrier();
+      if (carrier === 'russianpost') {
+        var idx = (document.getElementById('id_russianpost_to_index').value || '').replace(/\s/g, '');
+        if (idx.length !== 6 || !/^\d{6}$/.test(idx)) return false;
+      } else {
+        if (!city) return false;
+        if (carrier === 'cdek' && !document.getElementById('id_cdek_city_code').value) return false;
+      }
+      var deliveryCost = document.getElementById('id_delivery_cost').value;
+      if (!deliveryCost || parseFloat(deliveryCost) <= 0) return false;
+      if (type === 'pvz' && carrier !== 'russianpost') {
+        if (carrier === 'cdek') return !!document.getElementById('id_cdek_pvz_code').value.trim();
+        return !!document.getElementById('id_fivepost_pvz_id').value.trim();
+      }
+      var addr = form.querySelector('#id_delivery_address').value.trim();
+      return !!addr;
     }
     if (n === 3) {
       var name = form.querySelector('#id_name').value.trim();
@@ -203,14 +238,60 @@
     return true;
   }
 
+  function getCurrentCarrier() {
+    var checked = form.querySelector('input[name="delivery_method"]:checked');
+    var code = checked ? (checked.dataset.code || '') : '';
+    if (code === 'russianpost') return 'russianpost';
+    return code.indexOf('cdek') === 0 ? 'cdek' : 'fivepost';
+  }
+
   function toggleAddressFields() {
     var checked = form.querySelector('input[name="delivery_method"]:checked');
-    addressFields.style.display = (!checked || checked.dataset.type !== 'pickup') ? '' : 'none';
+    var isPvz = checked && checked.dataset.type === 'pvz';
+    var carrier = getCurrentCarrier();
+    var pvzWrap = document.getElementById('pvz-select-wrap');
+    var addrWrap = document.getElementById('address-courier-wrap');
+    var rpIndexWrap = document.getElementById('russianpost-index-wrap');
+    if (rpIndexWrap) rpIndexWrap.style.display = carrier === 'russianpost' ? '' : 'none';
+    if (pvzWrap) pvzWrap.style.display = (isPvz && carrier !== 'russianpost') ? '' : 'none';
+    if (addrWrap) addrWrap.style.display = (isPvz && carrier !== 'russianpost') ? 'none' : '';
+    if (carrier === 'russianpost' && isPvz) addrWrap.style.display = '';
+    if (isPvz && carrier !== 'russianpost') {
+      if (carrier === 'cdek') {
+        document.getElementById('id_fivepost_pvz_id').value = '';
+        var code = document.getElementById('id_cdek_city_code').value;
+        if (code) fetchPvzList(parseInt(code, 10));
+      } else {
+        document.getElementById('id_cdek_pvz_code').value = '';
+        var city = document.getElementById('id_delivery_city').value.trim();
+        if (city) fetchFivepostPvzList(city);
+      }
+    } else {
+      document.getElementById('id_delivery_address').value = '';
+    }
+    if (lastCdekTariffs && lastCdekCity) renderTariffChoice(lastCdekTariffs, lastCdekCity);
+    var city = document.getElementById('id_delivery_city').value.trim();
+    if (city) fetchDeliveryCost();
   }
 
   deliveryRadios.forEach(function(r) {
-    r.addEventListener('change', toggleAddressFields);
+    r.addEventListener('change', function() {
+      document.getElementById('id_delivery_cost').value = '';
+      document.getElementById('id_cdek_tariff_code').value = '';
+      if (getCurrentCarrier() !== 'russianpost') document.getElementById('id_russianpost_to_index').value = '';
+      toggleAddressFields();
+    });
   });
+  var rpIndexInput = document.getElementById('id_russianpost_to_index');
+  if (rpIndexInput) {
+    rpIndexInput.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+      if (this.value.length === 6) fetchRussianpostCost(this.value);
+    });
+    rpIndexInput.addEventListener('blur', function() {
+      if (this.value.length === 6) fetchRussianpostCost(this.value);
+    });
+  }
   toggleAddressFields();
 
   var savedSelect = document.getElementById('id_saved_address');
@@ -218,10 +299,336 @@
     savedSelect.addEventListener('change', function() {
       var opt = this.options[this.selectedIndex];
       if (opt && opt.value) {
-        document.getElementById('id_delivery_city').value = opt.dataset.city || '';
+        var city = opt.dataset.city || '';
+        document.getElementById('id_delivery_city').value = city;
         document.getElementById('id_delivery_address').value = opt.dataset.address || '';
+        document.getElementById('id_cdek_city_code').value = '';
+        if (getCurrentCarrier() === 'fivepost') fetchFivepostCost(city); else fetchCdekCost(city);
       }
     });
+  }
+
+  function fetchPvzList(cityCode) {
+    var sel = document.getElementById('id_pvz_select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Загрузка...</option>';
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/cdek/pvz/?city_code=' + cityCode, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      var results = [];
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          results = data.results || [];
+        } catch (e) {}
+      }
+      sel.innerHTML = '';
+      if (!results.length) {
+        var o = document.createElement('option');
+        o.value = '';
+        o.disabled = true;
+        o.textContent = 'Нет пунктов в этом городе';
+        sel.appendChild(o);
+      } else {
+        results.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.code;
+          opt.dataset.name = p.name || '';
+          opt.dataset.address = p.address || '';
+          opt.textContent = (p.name || '') + (p.address ? ' — ' + p.address : '');
+          sel.appendChild(opt);
+        });
+        sel.selectedIndex = 0;
+        sel.dispatchEvent(new Event('change'));
+      }
+    };
+    xhr.send();
+  }
+
+  function fetchFivepostPvzList(cityName) {
+    var sel = document.getElementById('id_pvz_select');
+    if (!sel || !cityName || !cityName.trim()) return;
+    sel.innerHTML = '<option value="">Загрузка...</option>';
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/fivepost/pvz/?city=' + encodeURIComponent(cityName.trim()), true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      var results = [];
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          results = data.results || [];
+        } catch (e) {}
+      }
+      sel.innerHTML = '';
+      if (!results.length) {
+        var o = document.createElement('option');
+        o.value = '';
+        o.disabled = true;
+        o.textContent = 'Нет пунктов в этом городе';
+        sel.appendChild(o);
+      } else {
+        results.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.id || p.code || '';
+          opt.dataset.name = p.name || '';
+          opt.dataset.address = p.address || '';
+          opt.textContent = (p.name || '') + (p.address ? ' — ' + p.address : '');
+          sel.appendChild(opt);
+        });
+        sel.selectedIndex = 0;
+        sel.dispatchEvent(new Event('change'));
+      }
+    };
+    xhr.send();
+  }
+
+  var pvzSelect = document.getElementById('id_pvz_select');
+  if (pvzSelect) {
+    pvzSelect.addEventListener('change', function() {
+      var opt = this.options[this.selectedIndex];
+      var addrInput = document.getElementById('id_delivery_address');
+      var carrier = getCurrentCarrier();
+      if (carrier === 'cdek') {
+        document.getElementById('id_cdek_pvz_code').value = opt && opt.value ? opt.value : '';
+        document.getElementById('id_fivepost_pvz_id').value = '';
+      } else {
+        document.getElementById('id_fivepost_pvz_id').value = opt && opt.value ? opt.value : '';
+        document.getElementById('id_cdek_pvz_code').value = '';
+      }
+      if (addrInput && opt && opt.value) addrInput.value = (opt.dataset.name || '') + (opt.dataset.address ? ', ' + opt.dataset.address : '');
+    });
+  }
+
+  var lastCdekTariffs = null;
+  var lastCdekCity = '';
+
+  function updateDeliveryTotal() {
+    var block = document.getElementById('delivery-step-total');
+    if (!block) return;
+    var panel = form.querySelector('.store-checkout-panel[data-panel="2"]');
+    var cartTotal = panel && panel.dataset.cartTotal ? parseFloat(String(panel.dataset.cartTotal).replace(/\s/g, '')) : 0;
+    if (isNaN(cartTotal)) cartTotal = 0;
+    var costEl = document.getElementById('id_delivery_cost');
+    var deliveryCost = costEl && costEl.value ? parseFloat(costEl.value) : 0;
+    if (isNaN(deliveryCost)) deliveryCost = 0;
+    var sum = cartTotal + deliveryCost;
+    var fmt = function(n) { return String(Math.round(n)).replace(/(\d)(?=(\d{3})+$)/g, '$1 '); };
+    var cartSpan = document.getElementById('delivery-total-cart');
+    var costSpan = document.getElementById('delivery-total-cost');
+    var sumSpan = document.getElementById('delivery-total-sum');
+    if (cartSpan) cartSpan.textContent = fmt(cartTotal);
+    if (costSpan) costSpan.textContent = fmt(deliveryCost);
+    if (sumSpan) sumSpan.textContent = fmt(sum);
+    block.style.display = (deliveryCost > 0) ? '' : 'none';
+  }
+
+  function formatTariffLabel(t) {
+    var days = t.period_min === t.period_max ? String(t.period_max) : t.period_min + '–' + t.period_max;
+    var rawName = (t.name || '').replace(/\s*(дверь-дверь|склад-склад|дверь-склад|склад-дверь)\s*/gi, '').trim();
+    var shortName = rawName.replace(/\s*до\s+\d+\s*$/i, '').trim() || 'Доставка';
+    var costFormatted = String(Math.round(t.delivery_sum)).replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
+    return { shortName: shortName, costFormatted: costFormatted, days: days };
+  }
+
+  function renderTariffChoice(tariffs, city) {
+    var block = document.getElementById('cdek-delivery-cost');
+    if (!block || !tariffs || !tariffs.length) return;
+    var checked = form.querySelector('input[name="delivery_method"]:checked');
+    var isCourier = checked && checked.dataset.type === 'courier';
+    var wantMode = isCourier ? 1 : 4;
+    var filtered = tariffs.filter(function(t) { return Number(t.delivery_mode) === wantMode; });
+    var label = isCourier ? 'дверь-дверь' : 'склад-склад';
+    var first = filtered[0];
+    document.getElementById('id_delivery_cost').value = first ? first.delivery_sum : '';
+    document.getElementById('id_cdek_tariff_code').value = first ? (first.tariff_code || '') : '';
+    var html = '';
+    if (!filtered.length) {
+      html = '<p class="store-tariff-empty">Нет подходящих тарифов (' + label + ').</p>';
+    } else {
+      html = '<label for="id_cdek_tariff">Тариф до ' + (city || '') + '</label>' +
+        '<select id="id_cdek_tariff" class="store-checkout-saved-select">';
+      filtered.forEach(function(t, idx) {
+        var lbl = formatTariffLabel(t);
+        var optVal = (t.tariff_code || '') + '|' + t.delivery_sum;
+        var optText = lbl.shortName + ' — ' + lbl.costFormatted + ' ₽ · ' + lbl.days + ' дн.';
+        html += '<option value="' + optVal.replace(/"/g, '&quot;') + '"' + (idx === 0 ? ' selected' : '') + '>' + optText + '</option>';
+      });
+      html += '</select>';
+    }
+    block.innerHTML = html;
+    var sel = block.querySelector('select');
+    if (sel) {
+      sel.addEventListener('change', function() {
+        var parts = this.value.split('|');
+        document.getElementById('id_cdek_tariff_code').value = parts[0] || '';
+        document.getElementById('id_delivery_cost').value = parts[1] || '';
+        updateDeliveryTotal();
+      });
+    }
+    updateDeliveryTotal();
+  }
+
+  function fetchFivepostCost(cityName) {
+    var block = document.getElementById('cdek-delivery-cost');
+    if (!block || !cityName || !cityName.trim()) { if (block) { block.style.display = 'none'; } lastCdekTariffs = null; return; }
+    var panel = form.querySelector('.store-checkout-panel[data-panel="2"]');
+    var weight = (panel && panel.dataset.cartWeight) ? parseInt(panel.dataset.cartWeight, 10) : 1000;
+    if (isNaN(weight) || weight < 500) weight = 1000;
+    block.style.display = 'block';
+    block.innerHTML = '<div class="store-tariff-loading">Расчёт доставки 5post...</div>';
+    var url = '/api/fivepost/delivery-cost/?city=' + encodeURIComponent(cityName.trim()) + '&weight=' + weight;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.ok && data.price != null) {
+            var checked = form.querySelector('input[name="delivery_method"]:checked');
+            var mode = (checked && checked.dataset.type === 'pvz') ? 4 : 1;
+            var tariffs = [{ delivery_sum: data.price, period_min: data.delivery_days || 0, period_max: data.delivery_days || 0, name: '5post', delivery_mode: mode }];
+            lastCdekTariffs = tariffs;
+            lastCdekCity = data.city || cityName || '';
+            document.getElementById('id_cdek_tariff_code').value = '';
+            renderTariffChoice(tariffs, lastCdekCity);
+            if (checked && checked.dataset.type === 'pvz') fetchFivepostPvzList(cityName.trim());
+          } else {
+            document.getElementById('id_delivery_cost').value = '';
+            block.innerHTML = '<p class="store-tariff-error">' + (data.error || 'Не удалось рассчитать.') + '</p>';
+            updateDeliveryTotal();
+          }
+        } catch (e) {
+          document.getElementById('id_delivery_cost').value = '';
+          block.innerHTML = '<p class="store-tariff-error">Ошибка ответа.</p>';
+          updateDeliveryTotal();
+        }
+      } else {
+        document.getElementById('id_delivery_cost').value = '';
+        block.innerHTML = '<p class="store-tariff-error">Ошибка расчёта 5post.</p>';
+        updateDeliveryTotal();
+      }
+    };
+    xhr.send();
+  }
+
+  function fetchCdekCost(cityName, cityCode) {
+    var block = document.getElementById('cdek-delivery-cost');
+    if (!block) return;
+    if (!cityName && !cityCode) { block.style.display = 'none'; lastCdekTariffs = null; return; }
+    var panel = form.querySelector('.store-checkout-panel[data-panel="2"]');
+    var weight = (panel && panel.dataset.cartWeight) ? parseInt(panel.dataset.cartWeight, 10) : 1000;
+    if (isNaN(weight) || weight < 500) weight = 1000;
+    block.style.display = 'block';
+    block.innerHTML = '<div class="store-tariff-loading">Расчёт доставки СДЭК...</div>';
+    var url = '/api/cdek/delivery-cost/?weight=' + weight;
+    if (cityCode) url += '&city_code=' + cityCode;
+    if (cityName && cityName.trim()) url += '&city=' + encodeURIComponent(cityName.trim());
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.ok && data.tariffs && data.tariffs.length) {
+            lastCdekTariffs = data.tariffs;
+            lastCdekCity = data.city || cityName || '';
+            renderTariffChoice(data.tariffs, lastCdekCity);
+            if (data.city_code && !document.getElementById('id_cdek_city_code').value) {
+              document.getElementById('id_cdek_city_code').value = data.city_code;
+              var checked = form.querySelector('input[name="delivery_method"]:checked');
+              if (checked && checked.dataset.type === 'pvz') fetchPvzList(data.city_code);
+            }
+          } else {
+            document.getElementById('id_delivery_cost').value = '';
+            document.getElementById('id_cdek_tariff_code').value = '';
+            block.innerHTML = '<p class="store-tariff-error">' + (data.error || 'Не удалось рассчитать.') + '</p>';
+            updateDeliveryTotal();
+          }
+        } catch (e) {
+          document.getElementById('id_delivery_cost').value = '';
+          document.getElementById('id_cdek_tariff_code').value = '';
+          block.innerHTML = '<p class="store-tariff-error">Ошибка ответа.</p>';
+          updateDeliveryTotal();
+        }
+      } else {
+        try {
+          var err = JSON.parse(xhr.responseText);
+          document.getElementById('id_delivery_cost').value = '';
+          document.getElementById('id_cdek_tariff_code').value = '';
+          block.innerHTML = '<p class="store-tariff-error">' + (err.error || 'Ошибка расчёта.') + '</p>';
+          updateDeliveryTotal();
+        } catch (e) {
+          document.getElementById('id_delivery_cost').value = '';
+          document.getElementById('id_cdek_tariff_code').value = '';
+          block.innerHTML = '<p class="store-tariff-error">Ошибка сети.</p>';
+          updateDeliveryTotal();
+        }
+      }
+    };
+    xhr.send();
+  }
+
+  function fetchRussianpostCost(toIndex) {
+    var block = document.getElementById('cdek-delivery-cost');
+    if (!block) return;
+    toIndex = String(toIndex).replace(/\s/g, '');
+    if (toIndex.length !== 6 || !/^\d{6}$/.test(toIndex)) { block.style.display = 'none'; lastCdekTariffs = null; return; }
+    var panel = form.querySelector('.store-checkout-panel[data-panel="2"]');
+    var weight = (panel && panel.dataset.cartWeight) ? parseInt(panel.dataset.cartWeight, 10) : 1000;
+    if (isNaN(weight) || weight < 1) weight = 1000;
+    var sumoc = (panel && panel.dataset.cartTotal) ? parseFloat(String(panel.dataset.cartTotal).replace(/\s/g, '')) : 100;
+    if (isNaN(sumoc) || sumoc < 0.01) sumoc = 100;
+    block.style.display = 'block';
+    block.innerHTML = '<div class="store-tariff-loading">Расчёт доставки Почты России...</div>';
+    var url = '/api/russianpost/delivery-cost/?to_index=' + toIndex + '&weight=' + weight + '&sumoc=' + Math.round(sumoc);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          if (data.ok && data.price != null) {
+            var tariffs = [{ delivery_sum: data.price, period_min: data.delivery_days || 0, period_max: data.delivery_days || 0, name: data.name || 'Почта России', delivery_mode: 1 }];
+            lastCdekTariffs = tariffs;
+            lastCdekCity = 'Индекс ' + toIndex;
+            document.getElementById('id_cdek_tariff_code').value = '';
+            renderTariffChoice(tariffs, lastCdekCity);
+          } else {
+            document.getElementById('id_delivery_cost').value = '';
+            block.innerHTML = '<p class="store-tariff-error">' + (data.error || 'Не удалось рассчитать.') + '</p>';
+            updateDeliveryTotal();
+          }
+        } catch (e) {
+          document.getElementById('id_delivery_cost').value = '';
+          block.innerHTML = '<p class="store-tariff-error">Ошибка ответа.</p>';
+          updateDeliveryTotal();
+        }
+      } else {
+        document.getElementById('id_delivery_cost').value = '';
+        block.innerHTML = '<p class="store-tariff-error">Ошибка расчёта Почты России.</p>';
+        updateDeliveryTotal();
+      }
+    };
+    xhr.send();
+  }
+
+  function fetchDeliveryCost() {
+    var carrier = getCurrentCarrier();
+    if (carrier === 'russianpost') {
+      var idx = (document.getElementById('id_russianpost_to_index').value || '').replace(/\s/g, '');
+      if (idx.length === 6 && /^\d{6}$/.test(idx)) fetchRussianpostCost(idx);
+      return;
+    }
+    var cityInput = document.getElementById('id_delivery_city');
+    var city = cityInput ? cityInput.value.trim() : '';
+    if (!city) return;
+    if (carrier === 'fivepost') fetchFivepostCost(city);
+    else fetchCdekCost(city, document.getElementById('id_cdek_city_code').value ? parseInt(document.getElementById('id_cdek_city_code').value, 10) : null);
   }
 
   (function cityAutocomplete() {
@@ -235,19 +642,32 @@
       list.style.display = 'none';
     }
 
-    function showSuggest(names) {
+    function showSuggest(items) {
       list.innerHTML = '';
-      if (!names.length) { hideSuggest(); return; }
-      names.forEach(function(name) {
+      if (!items || !items.length) { hideSuggest(); return; }
+      items.forEach(function(item) {
         var el = document.createElement('div');
         el.className = 'store-checkout-city-suggest-item';
         el.setAttribute('role', 'option');
-        el.textContent = name;
+        el.textContent = item.city + (item.region && item.region !== item.city ? ' (' + item.region + ')' : '');
+        el.dataset.code = item.code;
+        el.dataset.city = item.city;
         el.addEventListener('mousedown', function(e) {
           e.preventDefault();
-          input.value = name;
+          var code = item.code;
+          var city = item.city;
+          input.value = city;
+          var codeInput = document.getElementById('id_cdek_city_code');
+          var carrier = getCurrentCarrier();
+          if (codeInput) codeInput.value = (carrier === 'cdek') ? code : '';
+          document.getElementById('id_cdek_pvz_code').value = '';
+          document.getElementById('id_fivepost_pvz_id').value = '';
+          document.getElementById('id_delivery_address').value = '';
+          var pvzSel = document.getElementById('id_pvz_select');
+          if (pvzSel) { pvzSel.innerHTML = ''; }
           hideSuggest();
           input.focus();
+          fetchDeliveryCost();
         });
         list.appendChild(el);
       });
@@ -257,14 +677,23 @@
 
     function fetchCities(q) {
       if (!q || q.length < 2) { hideSuggest(); return; }
+      list.style.display = 'block';
+      list.setAttribute('aria-hidden', 'false');
+      list.innerHTML = '<div class="store-checkout-city-suggest-item" style="color:var(--store-muted);">Поиск...</div>';
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/cities/?q=' + encodeURIComponent(q), true);
+      xhr.open('GET', '/api/cdek/cities/?q=' + encodeURIComponent(q), true);
       xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;
         if (xhr.status === 200) {
           try {
             var data = JSON.parse(xhr.responseText);
-            showSuggest(data.results || []);
+            var items = data.results || [];
+            if (!items.length) {
+              list.innerHTML = '<div class="store-checkout-city-suggest-item" style="color:var(--store-muted); cursor:default;">Ничего не найдено. Проверьте написание.</div>';
+              list.style.display = 'block';
+              return;
+            }
+            showSuggest(items);
           } catch (e) { hideSuggest(); }
         } else { hideSuggest(); }
       };
@@ -274,7 +703,17 @@
     input.addEventListener('input', function() {
       var q = this.value.trim();
       clearTimeout(debounceTimer);
-      if (!q) { hideSuggest(); return; }
+      if (!q) {
+        document.getElementById('id_cdek_city_code').value = '';
+        document.getElementById('id_cdek_pvz_code').value = '';
+        document.getElementById('id_fivepost_pvz_id').value = '';
+        document.getElementById('id_delivery_cost').value = '';
+        var pvzSel = document.getElementById('id_pvz_select');
+        if (pvzSel) pvzSel.innerHTML = '';
+        updateDeliveryTotal();
+        hideSuggest();
+        return;
+      }
       debounceTimer = setTimeout(function() { fetchCities(q); }, 200);
     });
     input.addEventListener('focus', function() {
@@ -290,7 +729,11 @@
 
   backBtn.addEventListener('click', function() { showStep(currentStep - 1); });
   nextBtn.addEventListener('click', function() {
-    if (!validateStep(currentStep)) { alert('Заполните все обязательные поля.'); return; }
+    if (!validateStep(currentStep)) {
+      if (currentStep === 2) alert('Выберите город, тариф доставки и укажите адрес (или пункт выдачи).');
+      else alert('Заполните все обязательные поля.');
+      return;
+    }
     showStep(currentStep + 1);
   });
   form.addEventListener('submit', function(e) {
